@@ -16,7 +16,10 @@ export class TemplateService {
       throw new Error('Failed to fetch templates');
     }
 
-    return data || [];
+    return (data || []).map(template => ({
+      ...template,
+      variables: Array.isArray(template.variables) ? template.variables : []
+    }));
   }
 
   static async getTemplateById(id: string): Promise<DatabaseTemplate | null> {
@@ -32,7 +35,10 @@ export class TemplateService {
       return null;
     }
 
-    return data;
+    return data ? {
+      ...data,
+      variables: Array.isArray(data.variables) ? data.variables : []
+    } : null;
   }
 
   static async createTemplate(template: {
@@ -62,7 +68,10 @@ export class TemplateService {
       throw new Error('Failed to create template');
     }
 
-    return data;
+    return {
+      ...data,
+      variables: Array.isArray(data.variables) ? data.variables : []
+    };
   }
 
   static async updateTemplate(id: string, updates: Partial<DatabaseTemplate>): Promise<DatabaseTemplate> {
@@ -78,7 +87,10 @@ export class TemplateService {
       throw new Error('Failed to update template');
     }
 
-    return data;
+    return {
+      ...data,
+      variables: Array.isArray(data.variables) ? data.variables : []
+    };
   }
 
   static async deleteTemplate(id: string): Promise<void> {
@@ -137,7 +149,12 @@ export class TemplateService {
     // Track template usage
     await this.trackTemplateUsage(templateId);
 
-    return data;
+    return {
+      ...data,
+      variables_data: typeof data.variables_data === 'object' && data.variables_data !== null 
+        ? data.variables_data as Record<string, string>
+        : {}
+    };
   }
 
   static async getUserDocuments(): Promise<DatabaseDocument[]> {
@@ -154,7 +171,12 @@ export class TemplateService {
       throw new Error('Failed to fetch documents');
     }
 
-    return data || [];
+    return (data || []).map(doc => ({
+      ...doc,
+      variables_data: typeof doc.variables_data === 'object' && doc.variables_data !== null 
+        ? doc.variables_data as Record<string, string>
+        : {}
+    }));
   }
 
   static async updateDocumentStatus(id: string, status: DocumentStatus): Promise<void> {
@@ -219,7 +241,10 @@ export class TemplateService {
       throw new Error('Failed to fetch templates');
     }
 
-    return data || [];
+    return (data || []).map(template => ({
+      ...template,
+      variables: Array.isArray(template.variables) ? template.variables : []
+    }));
   }
 
   static downloadDocument(content: string, filename: string): void {
