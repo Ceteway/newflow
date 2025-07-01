@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,24 +11,19 @@ import {
   Edit, 
   Search,
   Plus,
-  Eye,
-  LogIn
+  Eye
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TemplateService } from "@/services/templateService";
 import { DatabaseTemplate, TemplateCategory } from "@/types/database";
-import { useAuth } from "@/hooks/useAuth";
-import { AuthModal } from "./AuthModal";
 import TemplateVariableEditor from "./TemplateVariableEditor";
 
 const DocumentTemplates = () => {
   const { toast } = useToast();
-  const { user, signOut } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<DatabaseTemplate | null>(null);
   const [templates, setTemplates] = useState<DatabaseTemplate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [authModalOpen, setAuthModalOpen] = useState(false);
 
   const categories: Array<TemplateCategory | "All"> = ["All", "agreements", "forms", "letters", "invoices", "reports"];
   const [activeCategory, setActiveCategory] = useState<TemplateCategory | "All">("All");
@@ -74,10 +70,6 @@ const DocumentTemplates = () => {
   };
 
   const handleGenerateDocument = (template: DatabaseTemplate) => {
-    if (!user) {
-      setAuthModalOpen(true);
-      return;
-    }
     setSelectedTemplate(template);
   };
 
@@ -106,25 +98,10 @@ const DocumentTemplates = () => {
               <FileText className="w-5 h-5" />
               <span>Document Templates</span>
             </CardTitle>
-            <div className="flex items-center space-x-2">
-              {user ? (
-                <>
-                  <span className="text-sm text-gray-600">Welcome, {user.email}</span>
-                  <Button variant="outline" onClick={signOut}>
-                    Sign Out
-                  </Button>
-                  <Button className="bg-blue-600 hover:bg-blue-700">
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Template
-                  </Button>
-                </>
-              ) : (
-                <Button onClick={() => setAuthModalOpen(true)}>
-                  <LogIn className="w-4 h-4 mr-2" />
-                  Sign In
-                </Button>
-              )}
-            </div>
+            <Button className="bg-blue-600 hover:bg-blue-700">
+              <Plus className="w-4 h-4 mr-2" />
+              New Template
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -334,9 +311,6 @@ const DocumentTemplates = () => {
           onClose={handleCloseEditor}
         />
       )}
-
-      {/* Auth Modal */}
-      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
     </div>
   );
 };

@@ -15,9 +15,11 @@ import {
   Home,
   Calendar,
   Clock,
-  TrendingUp
+  TrendingUp,
+  LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -35,6 +37,15 @@ const sidebarItems = [
 
 const DashboardLayout = ({ children, activeTab, onTabChange }: DashboardLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex">
@@ -91,12 +102,34 @@ const DashboardLayout = ({ children, activeTab, onTabChange }: DashboardLayoutPr
               <Users className="w-4 h-4" />
             </div>
             {sidebarOpen && (
-              <div className="ml-3">
-                <p className="text-sm font-medium">John Doe</p>
-                <p className="text-xs text-slate-400">Administrator</p>
+              <div className="ml-3 flex-1">
+                <p className="text-sm font-medium">{user?.email}</p>
+                <p className="text-xs text-slate-400">User</p>
               </div>
             )}
+            {sidebarOpen && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSignOut}
+                className="text-slate-400 hover:text-white ml-2"
+                title="Sign Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
+            )}
           </div>
+          {!sidebarOpen && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSignOut}
+              className="text-slate-400 hover:text-white mt-2 w-full"
+              title="Sign Out"
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </div>
 
