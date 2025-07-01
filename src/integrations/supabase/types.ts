@@ -9,7 +9,118 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      document_templates: {
+        Row: {
+          category: Database["public"]["Enums"]["template_category"]
+          content: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string | null
+          variables: Json
+        }
+        Insert: {
+          category?: Database["public"]["Enums"]["template_category"]
+          content: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string | null
+          variables?: Json
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["template_category"]
+          content?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string | null
+          variables?: Json
+        }
+        Relationships: []
+      }
+      generated_documents: {
+        Row: {
+          content: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          name: string
+          status: Database["public"]["Enums"]["document_status"] | null
+          template_id: string | null
+          updated_at: string | null
+          variables_data: Json
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name: string
+          status?: Database["public"]["Enums"]["document_status"] | null
+          template_id?: string | null
+          updated_at?: string | null
+          variables_data?: Json
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name?: string
+          status?: Database["public"]["Enums"]["document_status"] | null
+          template_id?: string | null
+          updated_at?: string | null
+          variables_data?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_documents_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "document_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_usage: {
+        Row: {
+          created_at: string | null
+          id: string
+          template_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          template_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          template_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_usage_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "document_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +129,13 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      document_status: "draft" | "completed" | "archived"
+      template_category:
+        | "agreements"
+        | "forms"
+        | "letters"
+        | "invoices"
+        | "reports"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +250,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      document_status: ["draft", "completed", "archived"],
+      template_category: [
+        "agreements",
+        "forms",
+        "letters",
+        "invoices",
+        "reports",
+      ],
+    },
   },
 } as const

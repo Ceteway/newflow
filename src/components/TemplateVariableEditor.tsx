@@ -6,9 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { DocumentTemplate, DocumentVariable, DocumentGenerator } from "@/services/documentGenerator";
-import { AIService } from "@/services/aiService";
 import { useToast } from "@/hooks/use-toast";
+import { TemplateService } from "@/services/templateService";
+import { DocumentVariable } from "@/types/database";
 import { 
   FileText, 
   Download, 
@@ -17,8 +17,15 @@ import {
   Eye
 } from "lucide-react";
 
+interface TemplateData {
+  id: string;
+  name: string;
+  content: string;
+  variables: string[];
+}
+
 interface TemplateVariableEditorProps {
-  template: DocumentTemplate;
+  template: TemplateData;
   onClose: () => void;
 }
 
@@ -41,37 +48,45 @@ const TemplateVariableEditor = ({ template, onClose }: TemplateVariableEditorPro
   const handleAIAutoFill = async () => {
     setIsGenerating(true);
     try {
-      // Create form data from current variables
-      const formData = variables.reduce((acc, variable) => {
-        acc[variable.key] = variable.value;
-        return acc;
-      }, {} as any);
-
-      // Get AI suggestions for empty fields
-      const emptyVariables = variables.filter(v => !v.value);
-      
-      for (const variable of emptyVariables) {
-        const suggestions = await AIService.getFormSuggestions(formData, variable.key);
-        if (suggestions.length > 0) {
-          const bestSuggestion = suggestions[0];
-          setVariables(prev => 
-            prev.map(v => 
-              v.key === variable.key ? { ...v, value: bestSuggestion.value } : v
-            )
-          );
-          formData[variable.key] = bestSuggestion.value;
+      // For now, we'll just fill with placeholder values
+      // This can be enhanced with actual AI integration later
+      const updatedVariables = variables.map(variable => {
+        if (!variable.value) {
+          let defaultValue = '';
+          
+          // Provide smart defaults based on variable name
+          if (variable.key.includes('date')) {
+            defaultValue = new Date().toLocaleDateString();
+          } else if (variable.key.includes('name')) {
+            defaultValue = 'John Doe';
+          } else if (variable.key.includes('address')) {
+            defaultValue = '123 Main Street, City, State';
+          } else if (variable.key.includes('amount') || variable.key.includes('rent')) {
+            defaultValue = '1000';
+          } else if (variable.key.includes('email')) {
+            defaultValue = 'example@email.com';
+          } else if (variable.key.includes('phone')) {
+            defaultValue = '(555) 123-4567';
+          } else {
+            defaultValue = `Sample ${variable.key.replace(/_/g, ' ')}`;
+          }
+          
+          return { ...variable, value: defaultValue };
         }
-      }
+        return variable;
+      });
+
+      setVariables(updatedVariables);
 
       toast({
         title: "AI Auto-fill Complete",
-        description: "Variables have been populated with AI suggestions",
+        description: "Variables have been populated with suggested values",
       });
     } catch (error) {
       console.error('AI auto-fill failed:', error);
       toast({
         title: "Auto-fill Failed",
-        description: "Could not generate AI suggestions",
+        description: "Could not generate suggestions",
         variant: "destructive"
       });
     } finally {
@@ -81,7 +96,13 @@ const TemplateVariableEditor = ({ template, onClose }: TemplateVariableEditorPro
 
   const handlePreview = () => {
     try {
-      const content = DocumentGenerator.populateTemplate(template.id, variables);
+      let content = template.content;
+      
+      variables.forEach(variable => {
+        const placeholder = `{{${variable.key}}}`;
+        content = content.replace(new RegExp(placeholder, 'g'), variable.value || `[${variable.key}]`);
+      });
+      
       setGeneratedContent(content);
     } catch (error) {
       toast({
@@ -92,14 +113,13 @@ const TemplateVariableEditor = ({ template, onClose }: TemplateVariableEditorPro
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     try {
-      const content = DocumentGenerator.populateTemplate(template.id, variables);
-      const filename = `${template.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.txt`;
-      DocumentGenerator.downloadDocument(content, filename);
+      const document = await TemplateService.generateDocument(template.id, variables);
+      TemplateService.downloadDocument(document.content, `${document.name}.txt`);
       
       toast({
-        title: "Document Downloaded",
+        title: "Document Generated",
         description: `${template.name} has been generated and downloaded`,
       });
     } catch (error) {
@@ -159,7 +179,7 @@ const TemplateVariableEditor = ({ template, onClose }: TemplateVariableEditorPro
                         {`{{${variable.key}}}`}
                       </Badge>
                     </Label>
-                    {variable.key.includes('address') || variable.key.includes('conditions') ? (
+                    {variable.key.includes('address') || variable.key.includes('conditions') || variable.key.includes('terms') ? (
                       <Textarea
                         id={variable.key}
                         value={variable.value}

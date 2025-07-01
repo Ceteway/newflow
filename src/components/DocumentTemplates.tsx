@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,135 +8,94 @@ import {
   FileText, 
   Download, 
   Edit, 
-  Copy, 
   Search,
   Plus,
   Eye,
-  Settings
+  LogIn
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { DocumentGenerator } from "@/services/documentGenerator";
+import { TemplateService } from "@/services/templateService";
+import { DatabaseTemplate, TemplateCategory } from "@/types/database";
+import { useAuth } from "@/hooks/useAuth";
+import { AuthModal } from "./AuthModal";
 import TemplateVariableEditor from "./TemplateVariableEditor";
 
 const DocumentTemplates = () => {
   const { toast } = useToast();
+  const { user, signOut } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<DatabaseTemplate | null>(null);
+  const [templates, setTemplates] = useState<DatabaseTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
 
-  const templates = [
-    {
-      id: "lease-agreement",
-      name: "Lease Agreement",
-      description: "Standard lease agreement template with automatic rent escalation",
-      category: "Agreements",
-      variables: 15,
-      lastModified: "2024-01-15",
-      status: "active"
-    },
-    {
-      id: "licence-agreement",
-      name: "Licence Agreement",
-      description: "Licence agreement for telecommunication site access",
-      category: "Agreements",
-      variables: 12,
-      lastModified: "2024-01-10",
-      status: "active"
-    },
-    {
-      id: "agreement-to-lease",
-      name: "Agreement to Lease",
-      description: "Preliminary agreement before main lease execution",
-      category: "Agreements",
-      variables: 10,
-      lastModified: "2024-01-08",
-      status: "active"
-    },
-    {
-      id: "wayleave-agreement",
-      name: "Wayleave Agreement",
-      description: "Agreement for access rights and utility installation",
-      category: "Agreements",
-      variables: 8,
-      lastModified: "2024-01-05",
-      status: "active"
-    },
-    {
-      id: "rof6-template",
-      name: "ROF 6 Template",
-      description: "Request for Opinion Form 6 - completion report",
-      category: "Forms",
-      variables: 20,
-      lastModified: "2024-01-12",
-      status: "active"
-    },
-    {
-      id: "forwarding-letter",
-      name: "Forwarding Letter",
-      description: "Letter for forwarding documents to relevant parties",
-      category: "Letters",
-      variables: 8,
-      lastModified: "2024-01-14",
-      status: "active"
-    },
-    {
-      id: "fee-note",
-      name: "Fee Note",
-      description: "Professional fee note template with VAT calculations",
-      category: "Invoices",
-      variables: 12,
-      lastModified: "2024-01-13",
-      status: "active"
-    },
-    {
-      id: "professional-undertaking",
-      name: "Professional Undertaking",
-      description: "Lawyer's professional undertaking template",
-      category: "Letters",
-      variables: 6,
-      lastModified: "2024-01-11",
-      status: "active"
+  const categories: Array<TemplateCategory | "All"> = ["All", "agreements", "forms", "letters", "invoices", "reports"];
+  const [activeCategory, setActiveCategory] = useState<TemplateCategory | "All">("All");
+
+  useEffect(() => {
+    loadTemplates();
+  }, []);
+
+  const loadTemplates = async () => {
+    try {
+      setLoading(true);
+      const data = await TemplateService.getAllTemplates();
+      setTemplates(data);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load templates",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
-  ];
-
-  const categories = ["All", "Agreements", "Forms", "Letters", "Invoices"];
-
-  const [activeCategory, setActiveCategory] = useState("All");
+  };
 
   const filteredTemplates = templates.filter(template => {
     const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         template.description.toLowerCase().includes(searchTerm.toLowerCase());
+                         (template.description && template.description.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesCategory = activeCategory === "All" || template.category === activeCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const handlePreviewTemplate = (templateId: string) => {
-    const template = DocumentGenerator.templates[templateId];
-    if (template) {
-      toast({
-        title: "Template Preview",
-        description: template.content.substring(0, 100) + "...",
-      });
-    }
+  const handlePreviewTemplate = (template: DatabaseTemplate) => {
+    toast({
+      title: "Template Preview",
+      description: template.content.substring(0, 100) + "...",
+    });
   };
 
-  const handleEditTemplate = (templateId: string) => {
+  const handleEditTemplate = (template: DatabaseTemplate) => {
     toast({
       title: "Template Editor",
       description: "Template editing functionality coming soon",
     });
   };
 
-  const handleGenerateDocument = (templateId: string) => {
-    setSelectedTemplate(templateId);
+  const handleGenerateDocument = (template: DatabaseTemplate) => {
+    if (!user) {
+      setAuthModalOpen(true);
+      return;
+    }
+    setSelectedTemplate(template);
   };
 
   const handleCloseEditor = () => {
     setSelectedTemplate(null);
   };
 
-  const getTemplateById = (id: string) => {
-    return DocumentGenerator.templates[id];
+  const getCategoryDisplayName = (category: string) => {
+    return category.charAt(0).toUpperCase() + category.slice(1);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Loading templates...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -147,10 +106,25 @@ const DocumentTemplates = () => {
               <FileText className="w-5 h-5" />
               <span>Document Templates</span>
             </CardTitle>
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="w-4 h-4 mr-2" />
-              New Template
-            </Button>
+            <div className="flex items-center space-x-2">
+              {user ? (
+                <>
+                  <span className="text-sm text-gray-600">Welcome, {user.email}</span>
+                  <Button variant="outline" onClick={signOut}>
+                    Sign Out
+                  </Button>
+                  <Button className="bg-blue-600 hover:bg-blue-700">
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Template
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={() => setAuthModalOpen(true)}>
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Sign In
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -165,7 +139,7 @@ const DocumentTemplates = () => {
                 className="pl-10"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {categories.map((category) => (
                 <Button
                   key={category}
@@ -173,7 +147,7 @@ const DocumentTemplates = () => {
                   size="sm"
                   onClick={() => setActiveCategory(category)}
                 >
-                  {category}
+                  {getCategoryDisplayName(category)}
                 </Button>
               ))}
             </div>
@@ -190,21 +164,19 @@ const DocumentTemplates = () => {
                       <p className="text-sm text-gray-600 mb-2">{template.description}</p>
                       <div className="flex items-center space-x-2">
                         <Badge variant="outline" className="text-xs">
-                          {template.category}
+                          {getCategoryDisplayName(template.category)}
                         </Badge>
                         <Badge variant="secondary" className="text-xs">
-                          {template.variables} variables
+                          {template.variables.length} variables
                         </Badge>
                       </div>
                     </div>
                   </div>
                   
                   <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-                    <span>Modified: {template.lastModified}</span>
-                    <Badge 
-                      className={template.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}
-                    >
-                      {template.status}
+                    <span>Modified: {new Date(template.updated_at).toLocaleDateString()}</span>
+                    <Badge className="bg-green-100 text-green-800">
+                      Active
                     </Badge>
                   </div>
 
@@ -212,7 +184,7 @@ const DocumentTemplates = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handlePreviewTemplate(template.id)}
+                      onClick={() => handlePreviewTemplate(template)}
                       className="flex-1"
                     >
                       <Eye className="w-4 h-4 mr-1" />
@@ -221,13 +193,13 @@ const DocumentTemplates = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleEditTemplate(template.id)}
+                      onClick={() => handleEditTemplate(template)}
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
                     <Button
                       size="sm"
-                      onClick={() => handleGenerateDocument(template.id)}
+                      onClick={() => handleGenerateDocument(template)}
                       className="bg-blue-600 hover:bg-blue-700"
                     >
                       <Download className="w-4 h-4" />
@@ -238,7 +210,7 @@ const DocumentTemplates = () => {
             ))}
           </div>
 
-          {filteredTemplates.length === 0 && (
+          {filteredTemplates.length === 0 && !loading && (
             <div className="text-center py-8">
               <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600">No templates found matching your criteria.</p>
@@ -353,10 +325,18 @@ const DocumentTemplates = () => {
       {/* Template Variable Editor Modal */}
       {selectedTemplate && (
         <TemplateVariableEditor
-          template={getTemplateById(selectedTemplate)}
+          template={{
+            id: selectedTemplate.id,
+            name: selectedTemplate.name,
+            content: selectedTemplate.content,
+            variables: selectedTemplate.variables
+          }}
           onClose={handleCloseEditor}
         />
       )}
+
+      {/* Auth Modal */}
+      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
     </div>
   );
 };

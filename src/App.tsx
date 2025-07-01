@@ -13,7 +13,7 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
+  <QueryClient Provider client={queryClient}>
     <TooltipProvider>
       <UserProvider>
         <WorkflowProvider>
