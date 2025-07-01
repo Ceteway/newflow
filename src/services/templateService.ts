@@ -18,7 +18,9 @@ export class TemplateService {
 
     return (data || []).map(template => ({
       ...template,
-      variables: Array.isArray(template.variables) ? template.variables : []
+      variables: Array.isArray(template.variables) 
+        ? template.variables.filter((v): v is string => typeof v === 'string')
+        : []
     }));
   }
 
@@ -37,7 +39,9 @@ export class TemplateService {
 
     return data ? {
       ...data,
-      variables: Array.isArray(data.variables) ? data.variables : []
+      variables: Array.isArray(data.variables) 
+        ? data.variables.filter((v): v is string => typeof v === 'string')
+        : []
     } : null;
   }
 
@@ -70,7 +74,9 @@ export class TemplateService {
 
     return {
       ...data,
-      variables: Array.isArray(data.variables) ? data.variables : []
+      variables: Array.isArray(data.variables) 
+        ? data.variables.filter((v): v is string => typeof v === 'string')
+        : []
     };
   }
 
@@ -89,7 +95,9 @@ export class TemplateService {
 
     return {
       ...data,
-      variables: Array.isArray(data.variables) ? data.variables : []
+      variables: Array.isArray(data.variables) 
+        ? data.variables.filter((v): v is string => typeof v === 'string')
+        : []
     };
   }
 
@@ -243,7 +251,9 @@ export class TemplateService {
 
     return (data || []).map(template => ({
       ...template,
-      variables: Array.isArray(template.variables) ? template.variables : []
+      variables: Array.isArray(template.variables) 
+        ? template.variables.filter((v): v is string => typeof v === 'string')
+        : []
     }));
   }
 
