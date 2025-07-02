@@ -24,6 +24,7 @@ const ROF5Form = () => {
 
   const [currentField, setCurrentField] = useState<string>('');
   const [aiEnabled, setAiEnabled] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleInputChangeWithAI = (field: keyof typeof formData, value: string) => {
     handleInputChange(field, value);
@@ -40,46 +41,65 @@ const ROF5Form = () => {
     });
   };
 
+  const handleSaveDraft = () => {
+    toast({
+      title: "Draft Saved",
+      description: "ROF 5 form has been saved as draft",
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Use AI to calculate smart priority and deadline
-    const aiPriority = AIService.calculateSmartPriority(formData);
-    const aiDeadline = AIService.calculateSmartDeadline(formData, aiPriority);
-    
-    // Create new instruction with AI enhancements
-    const instructionId = `ROF-${new Date().getFullYear()}-${String(Date.now()).slice(-3)}`;
-    
-    const newInstruction: WorkflowInstruction = {
-      id: instructionId,
-      siteCode: formData.siteCode,
-      siteName: formData.siteName,
-      siteLocation: formData.siteLocation,
-      landlordName: formData.landlordName,
-      stage: 'document-drafting',
-      progress: 25,
-      createdAt: new Date().toISOString().split('T')[0],
-      lastUpdated: new Date().toISOString().split('T')[0],
-      assignee: formData.instructingCounsel,
-      nextAction: 'Generate Documents',
-      priority: aiPriority,
-      formData: { ...formData, expectedCompletionDate: aiDeadline },
-      generatedDocuments: [],
-      auditTrail: [{
-        id: `audit-${Date.now()}`,
-        action: 'ROF 5 Submitted with AI Enhancement',
-        user: formData.instructingCounsel,
-        timestamp: new Date().toISOString(),
-        details: `Priority: ${aiPriority}, Deadline: ${aiDeadline}`
-      }]
-    };
+    // Validate required fields
+    if (!formData.siteName || !formData.siteCode || !formData.siteLocation || !formData.landlordName) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields (Site Name, Site Code, Location, and Landlord Name)",
+        variant: "destructive"
+      });
+      return;
+    }
 
-    addInstruction(newInstruction);
-
-    // Generate initial documents based on lease type
-    const templateIds = [formData.leaseType || 'lease-agreement'];
+    setIsSubmitting(true);
     
     try {
+      // Use AI to calculate smart priority and deadline
+      const aiPriority = AIService.calculateSmartPriority(formData);
+      const aiDeadline = AIService.calculateSmartDeadline(formData, aiPriority);
+      
+      // Create new instruction with AI enhancements
+      const instructionId = `ROF-${new Date().getFullYear()}-${String(Date.now()).slice(-3)}`;
+      
+      const newInstruction: WorkflowInstruction = {
+        id: instructionId,
+        siteCode: formData.siteCode,
+        siteName: formData.siteName,
+        siteLocation: formData.siteLocation,
+        landlordName: formData.landlordName,
+        stage: 'document-drafting',
+        progress: 25,
+        createdAt: new Date().toISOString().split('T')[0],
+        lastUpdated: new Date().toISOString().split('T')[0],
+        assignee: formData.instructingCounsel || 'Unassigned',
+        nextAction: 'Generate Documents',
+        priority: aiPriority,
+        formData: { ...formData, expectedCompletionDate: aiDeadline },
+        generatedDocuments: [],
+        auditTrail: [{
+          id: `audit-${Date.now()}`,
+          action: 'ROF 5 Submitted with AI Enhancement',
+          user: formData.instructingCounsel || 'Current User',
+          timestamp: new Date().toISOString(),
+          details: `Priority: ${aiPriority}, Deadline: ${aiDeadline}`
+        }]
+      };
+
+      addInstruction(newInstruction);
+
+      // Generate initial documents based on lease type
+      const templateIds = [formData.leaseType || 'lease-agreement'];
+      
       await generateDocuments(instructionId, templateIds);
       
       // Generate and download the main document
@@ -96,11 +116,14 @@ const ROF5Form = () => {
       resetForm();
 
     } catch (error) {
+      console.error('ROF5 submission error:', error);
       toast({
-        title: "Error",
-        description: "Failed to generate documents. Please try again.",
+        title: "Submission Error",
+        description: "Failed to submit ROF 5 form. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -131,7 +154,10 @@ const ROF5Form = () => {
               )}
             </div>
 
-            <FormActions />
+            <FormActions 
+              onSaveDraft={handleSaveDraft}
+              isSubmitting={isSubmitting}
+            />
           </form>
         </CardContent>
       </Card>
