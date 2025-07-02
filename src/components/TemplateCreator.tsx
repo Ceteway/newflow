@@ -14,7 +14,8 @@ import {
   FileText, 
   Upload, 
   X,
-  Wand2
+  Wand2,
+  Plus
 } from "lucide-react";
 
 interface TemplateCreatorProps {
