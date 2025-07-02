@@ -17,11 +17,13 @@ import { useToast } from "@/hooks/use-toast";
 import { TemplateService } from "@/services/templateService";
 import { DatabaseTemplate, TemplateCategory } from "@/types/database";
 import TemplateVariableEditor from "./TemplateVariableEditor";
+import TemplateCreator from "./TemplateCreator";
 
 const DocumentTemplates = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<DatabaseTemplate | null>(null);
+  const [showTemplateCreator, setShowTemplateCreator] = useState(false);
   const [templates, setTemplates] = useState<DatabaseTemplate[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -77,6 +79,18 @@ const DocumentTemplates = () => {
     setSelectedTemplate(null);
   };
 
+  const handleShowTemplateCreator = () => {
+    setShowTemplateCreator(true);
+  };
+
+  const handleCloseTemplateCreator = () => {
+    setShowTemplateCreator(false);
+  };
+
+  const handleTemplateCreated = () => {
+    loadTemplates(); // Refresh the templates list
+  };
+
   const getCategoryDisplayName = (category: string) => {
     return category.charAt(0).toUpperCase() + category.slice(1);
   };
@@ -98,7 +112,10 @@ const DocumentTemplates = () => {
               <FileText className="w-5 h-5" />
               <span>Document Templates</span>
             </CardTitle>
-            <Button className="bg-blue-600 hover:bg-blue-700">
+            <Button 
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={handleShowTemplateCreator}
+            >
               <Plus className="w-4 h-4 mr-2" />
               New Template
             </Button>
@@ -309,6 +326,14 @@ const DocumentTemplates = () => {
             variables: selectedTemplate.variables
           }}
           onClose={handleCloseEditor}
+        />
+      )}
+
+      {/* Template Creator Modal */}
+      {showTemplateCreator && (
+        <TemplateCreator
+          onClose={handleCloseTemplateCreator}
+          onTemplateCreated={handleTemplateCreated}
         />
       )}
     </div>
