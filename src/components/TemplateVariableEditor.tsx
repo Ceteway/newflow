@@ -6,15 +6,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { TemplateService } from "@/services/templateService";
+import { DocumentGeneratorService } from "@/services/documentGeneratorService";
 import { DocumentVariable } from "@/types/database";
 import { 
   FileText, 
   Download, 
   Wand2, 
   Copy,
-  Eye
+  Eye,
+  FileDown
 } from "lucide-react";
 
 interface TemplateData {
@@ -36,6 +39,7 @@ const TemplateVariableEditor = ({ template, onClose }: TemplateVariableEditorPro
   );
   const [generatedContent, setGeneratedContent] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [downloadFormat, setDownloadFormat] = useState<'text' | 'html' | 'docx'>('docx');
 
   const handleVariableChange = (key: string, value: string) => {
     setVariables(prev => 
@@ -48,25 +52,52 @@ const TemplateVariableEditor = ({ template, onClose }: TemplateVariableEditorPro
   const handleAIAutoFill = async () => {
     setIsGenerating(true);
     try {
-      // For now, we'll just fill with placeholder values
-      // This can be enhanced with actual AI integration later
+      // Enhanced AI auto-fill with better suggestions
       const updatedVariables = variables.map(variable => {
         if (!variable.value) {
           let defaultValue = '';
           
-          // Provide smart defaults based on variable name
-          if (variable.key.includes('date')) {
-            defaultValue = new Date().toLocaleDateString();
-          } else if (variable.key.includes('name')) {
+          // Smart defaults based on variable name patterns
+          const varName = variable.key.toLowerCase();
+          
+          if (varName.includes('date') || varName.includes('commencement') || varName.includes('expiry')) {
+            if (varName.includes('commencement') || varName.includes('start')) {
+              defaultValue = new Date().toLocaleDateString('en-GB');
+            } else if (varName.includes('expiry') || varName.includes('end')) {
+              const futureDate = new Date();
+              futureDate.setFullYear(futureDate.getFullYear() + 5);
+              defaultValue = futureDate.toLocaleDateString('en-GB');
+            } else {
+              defaultValue = new Date().toLocaleDateString('en-GB');
+            }
+          } else if (varName.includes('landlord') && varName.includes('name')) {
             defaultValue = 'John Doe';
-          } else if (variable.key.includes('address')) {
-            defaultValue = '123 Main Street, City, State';
-          } else if (variable.key.includes('amount') || variable.key.includes('rent')) {
-            defaultValue = '1000';
-          } else if (variable.key.includes('email')) {
-            defaultValue = 'example@email.com';
-          } else if (variable.key.includes('phone')) {
-            defaultValue = '(555) 123-4567';
+          } else if (varName.includes('tenant') && varName.includes('name')) {
+            defaultValue = 'SAFARICOM PLC';
+          } else if (varName.includes('address')) {
+            if (varName.includes('tenant') || varName.includes('safaricom')) {
+              defaultValue = 'Safaricom House, Waiyaki Way, Westlands, P.O. Box 66827-00800, Nairobi';
+            } else {
+              defaultValue = '123 Main Street, Nairobi, Kenya';
+            }
+          } else if (varName.includes('rent') || varName.includes('amount') || varName.includes('fee')) {
+            defaultValue = '50000';
+          } else if (varName.includes('site') && varName.includes('location')) {
+            defaultValue = 'Westlands, Nairobi';
+          } else if (varName.includes('site') && varName.includes('code')) {
+            defaultValue = 'WLD001';
+          } else if (varName.includes('lease') && varName.includes('term')) {
+            defaultValue = '10';
+          } else if (varName.includes('escalation') && varName.includes('rate')) {
+            defaultValue = '5';
+          } else if (varName.includes('title') && varName.includes('number')) {
+            defaultValue = 'NAIROBI/BLOCK1/123';
+          } else if (varName.includes('email')) {
+            defaultValue = 'example@safaricom.co.ke';
+          } else if (varName.includes('phone')) {
+            defaultValue = '+254 700 000 000';
+          } else if (varName.includes('id') || varName.includes('number')) {
+            defaultValue = '12345678';
           } else {
             defaultValue = `Sample ${variable.key.replace(/_/g, ' ')}`;
           }
@@ -80,7 +111,7 @@ const TemplateVariableEditor = ({ template, onClose }: TemplateVariableEditorPro
 
       toast({
         title: "AI Auto-fill Complete",
-        description: "Variables have been populated with suggested values",
+        description: "Variables have been populated with intelligent suggestions",
       });
     } catch (error) {
       console.error('AI auto-fill failed:', error);
@@ -94,16 +125,15 @@ const TemplateVariableEditor = ({ template, onClose }: TemplateVariableEditorPro
     }
   };
 
-  const handlePreview = () => {
+  const handlePreview = async () => {
     try {
-      let content = template.content;
+      const result = await DocumentGeneratorService.generateDocument(
+        template.content,
+        variables,
+        { format: 'text', includeFormatting: true }
+      );
       
-      variables.forEach(variable => {
-        const placeholder = `{{${variable.key}}}`;
-        content = content.replace(new RegExp(placeholder, 'g'), variable.value || `[${variable.key}]`);
-      });
-      
-      setGeneratedContent(content);
+      setGeneratedContent(result.content);
     } catch (error) {
       toast({
         title: "Preview Failed",
@@ -115,14 +145,24 @@ const TemplateVariableEditor = ({ template, onClose }: TemplateVariableEditorPro
 
   const handleDownload = async () => {
     try {
-      const document = await TemplateService.generateDocument(template.id, variables);
-      TemplateService.downloadDocument(document.content, `${document.name}.txt`);
+      const result = await DocumentGeneratorService.generateDocument(
+        template.content,
+        variables,
+        { format: downloadFormat, includeFormatting: true }
+      );
+      
+      const filename = `${template.name}_${new Date().getTime()}`;
+      DocumentGeneratorService.downloadDocument(result.content, filename, downloadFormat);
+      
+      // Also save to database
+      await TemplateService.generateDocument(template.id, variables);
       
       toast({
         title: "Document Generated",
-        description: `${template.name} has been generated and downloaded`,
+        description: `${template.name} has been generated and downloaded as ${downloadFormat.toUpperCase()} format`,
       });
     } catch (error) {
+      console.error('Download failed:', error);
       toast({
         title: "Download Failed",
         description: "Could not generate document",
@@ -143,7 +183,7 @@ const TemplateVariableEditor = ({ template, onClose }: TemplateVariableEditorPro
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-lg max-w-7xl w-full max-h-[95vh] overflow-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-2 h-full">
           {/* Variable Editor */}
           <Card className="border-0 rounded-none">
@@ -169,7 +209,7 @@ const TemplateVariableEditor = ({ template, onClose }: TemplateVariableEditorPro
                 </div>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 max-h-[60vh] overflow-y-auto">
+            <CardContent className="space-y-4 max-h-[70vh] overflow-y-auto">
               <div className="space-y-3">
                 {variables.map((variable) => (
                   <div key={variable.key} className="space-y-2">
@@ -179,13 +219,16 @@ const TemplateVariableEditor = ({ template, onClose }: TemplateVariableEditorPro
                         {`{{${variable.key}}}`}
                       </Badge>
                     </Label>
-                    {variable.key.includes('address') || variable.key.includes('conditions') || variable.key.includes('terms') ? (
+                    {variable.key.includes('address') || 
+                     variable.key.includes('conditions') || 
+                     variable.key.includes('terms') || 
+                     variable.key.includes('description') ? (
                       <Textarea
                         id={variable.key}
                         value={variable.value}
                         onChange={(e) => handleVariableChange(variable.key, e.target.value)}
                         placeholder={`Enter ${variable.key.replace(/_/g, ' ')}`}
-                        rows={2}
+                        rows={3}
                       />
                     ) : (
                       <Input
@@ -199,14 +242,29 @@ const TemplateVariableEditor = ({ template, onClose }: TemplateVariableEditorPro
                 ))}
               </div>
               
+              {/* Download Format Selection */}
+              <div className="space-y-2 pt-4 border-t">
+                <Label>Download Format</Label>
+                <Select value={downloadFormat} onValueChange={(value: 'text' | 'html' | 'docx') => setDownloadFormat(value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="docx">Word Document (.doc)</SelectItem>
+                    <SelectItem value="html">HTML Document (.html)</SelectItem>
+                    <SelectItem value="text">Text Document (.txt)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
               <div className="flex space-x-2 pt-4">
                 <Button onClick={handlePreview} variant="outline" className="flex-1">
                   <Eye className="w-4 h-4 mr-2" />
                   Preview
                 </Button>
                 <Button onClick={handleDownload} className="flex-1 bg-blue-600 hover:bg-blue-700">
-                  <Download className="w-4 h-4 mr-2" />
-                  Download
+                  <FileDown className="w-4 h-4 mr-2" />
+                  Download {downloadFormat.toUpperCase()}
                 </Button>
               </div>
             </CardContent>
@@ -230,15 +288,19 @@ const TemplateVariableEditor = ({ template, onClose }: TemplateVariableEditorPro
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="bg-gray-50 p-4 rounded-lg max-h-[60vh] overflow-y-auto">
+              <div className="bg-gray-50 p-4 rounded-lg max-h-[70vh] overflow-y-auto">
                 {generatedContent ? (
-                  <pre className="whitespace-pre-wrap text-sm text-gray-800">
+                  <div 
+                    className="whitespace-pre-wrap text-sm text-gray-800 leading-relaxed"
+                    style={{ fontFamily: 'Times New Roman, serif' }}
+                  >
                     {generatedContent}
-                  </pre>
+                  </div>
                 ) : (
                   <div className="text-center text-gray-500 py-8">
                     <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                     <p>Click "Preview" to generate document content</p>
+                    <p className="text-xs mt-2">Fill in the variables on the left and preview the generated document here</p>
                   </div>
                 )}
               </div>

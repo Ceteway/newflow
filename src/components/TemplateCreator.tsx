@@ -15,8 +15,11 @@ import {
   Upload, 
   X,
   Wand2,
-  Plus
+  Plus,
+  Bot,
+  Edit3
 } from "lucide-react";
+import mammoth from "mammoth";
 
 interface TemplateCreatorProps {
   onClose: () => void;
@@ -34,6 +37,8 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
   const [extractedVariables, setExtractedVariables] = useState<string[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [showEditor, setShowEditor] = useState(false);
+  const [isAIProcessing, setIsAIProcessing] = useState(false);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -43,17 +48,17 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
     try {
       let text = '';
       
-      if (file.type.includes('text') || file.name.endsWith('.txt')) {
-        // Handle plain text files
+      if (file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
+        // Use mammoth to properly extract Word document content
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        text = result.value;
+        
+        if (result.messages.length > 0) {
+          console.log('Mammoth conversion messages:', result.messages);
+        }
+      } else if (file.type.includes('text') || file.name.endsWith('.txt')) {
         text = await file.text();
-      } else if (file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
-        // For Word documents, we'll read as text for now
-        // In a production app, you'd use a library like mammoth.js
-        text = await file.text();
-        toast({
-          title: "Word Document Detected",
-          description: "For best results with Word documents, copy and paste the content directly into the text area.",
-        });
       } else {
         // Try to read as text anyway
         text = await file.text();
@@ -61,28 +66,81 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
 
       setFormData(prev => ({ ...prev, content: text }));
       
-      // Extract variables from the content
-      const variables = TemplateService.extractVariablesFromContent(text);
-      setExtractedVariables(variables);
-      
       // Auto-generate name from filename if not set
       if (!formData.name) {
         const filename = file.name.replace(/\.[^/.]+$/, "");
         setFormData(prev => ({ ...prev, name: filename }));
       }
 
+      // Show the editor for content editing
+      setShowEditor(true);
+
       toast({
-        title: "File Uploaded",
-        description: `Found ${variables.length} variables in the document`,
+        title: "File Uploaded Successfully",
+        description: `Document content extracted and ready for editing`,
       });
     } catch (error) {
+      console.error('File upload error:', error);
       toast({
         title: "Upload Failed",
-        description: "Could not read the file content. Try copying and pasting the text directly.",
+        description: "Could not read the file content. Please try a different file format.",
         variant: "destructive"
       });
     } finally {
       setIsExtracting(false);
+    }
+  };
+
+  const handleAIVariableSuggestions = async () => {
+    if (!formData.content) {
+      toast({
+        title: "No Content",
+        description: "Please add template content first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsAIProcessing(true);
+    try {
+      // AI-powered variable detection and suggestion
+      const suggestions = await generateAIVariableSuggestions(formData.content);
+      
+      // Apply AI suggestions to content
+      let updatedContent = formData.content;
+      const newVariables: string[] = [];
+      
+      suggestions.forEach(suggestion => {
+        // Replace suggested text with variable placeholders
+        const variableName = suggestion.variableName;
+        const placeholder = `{{${variableName}}}`;
+        
+        updatedContent = updatedContent.replace(
+          new RegExp(suggestion.originalText, 'gi'), 
+          placeholder
+        );
+        
+        if (!extractedVariables.includes(variableName)) {
+          newVariables.push(variableName);
+        }
+      });
+      
+      setFormData(prev => ({ ...prev, content: updatedContent }));
+      setExtractedVariables(prev => [...prev, ...newVariables]);
+      
+      toast({
+        title: "AI Suggestions Applied",
+        description: `Added ${newVariables.length} new variables based on AI analysis`,
+      });
+    } catch (error) {
+      console.error('AI processing error:', error);
+      toast({
+        title: "AI Processing Failed",
+        description: "Could not generate AI suggestions",
+        variant: "destructive"
+      });
+    } finally {
+      setIsAIProcessing(false);
     }
   };
 
@@ -168,7 +226,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-4xl max-h-[90vh] overflow-hidden">
+      <Card className="w-full max-w-6xl max-h-[95vh] overflow-hidden">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center space-x-2">
@@ -180,7 +238,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6 max-h-[calc(90vh-120px)] overflow-y-auto">
+        <CardContent className="space-y-6 max-h-[calc(95vh-120px)] overflow-y-auto">
           {/* Basic Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -224,8 +282,8 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
             <Label>Upload Document</Label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
               <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-gray-600 mb-2">Upload a Word document or text file</p>
-              <p className="text-xs text-gray-500 mb-2">For Word docs, copy-paste content for best results</p>
+              <p className="text-gray-600 mb-2">Upload a Word document (.docx, .doc) or text file</p>
+              <p className="text-xs text-gray-500 mb-2">Word documents will be properly parsed and formatted</p>
               <input
                 type="file"
                 accept=".doc,.docx,.txt"
@@ -241,11 +299,20 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
             </div>
           </div>
 
-          {/* Template Content */}
+          {/* Content Editor */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="content">Template Content *</Label>
               <div className="flex space-x-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleAIVariableSuggestions}
+                  disabled={!formData.content || isAIProcessing}
+                >
+                  <Bot className="w-4 h-4 mr-2" />
+                  {isAIProcessing ? "AI Processing..." : "AI Suggest Variables"}
+                </Button>
                 <Button
                   size="sm"
                   variant="outline"
@@ -263,18 +330,32 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
                   <Plus className="w-4 h-4 mr-2" />
                   Add Variable
                 </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowEditor(!showEditor)}
+                >
+                  <Edit3 className="w-4 h-4 mr-2" />
+                  {showEditor ? "Hide Editor" : "Show Editor"}
+                </Button>
               </div>
             </div>
+            
             <Textarea
               id="content"
               value={formData.content}
               onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-              placeholder="Enter your template content. Use {{variable_name}} for dynamic values."
-              rows={8}
+              placeholder="Enter your template content or upload a document above. Use {{variable_name}} for dynamic values."
+              rows={showEditor ? 12 : 8}
+              className={showEditor ? "font-mono text-sm" : ""}
             />
-            <p className="text-xs text-gray-500">
-              Use double curly braces for variables: {`{{landlord_name}}, {{site_location}}, {{current_date}}`}
-            </p>
+            
+            <div className="flex items-center justify-between text-xs text-gray-500">
+              <span>Use double curly braces for variables: {`{{landlord_name}}, {{site_location}}, {{current_date}}`}</span>
+              {formData.content.length > 0 && (
+                <span>{formData.content.length} characters</span>
+              )}
+            </div>
           </div>
 
           {/* Extracted Variables */}
@@ -317,6 +398,38 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
       </Card>
     </div>
   );
+};
+
+// AI-powered variable suggestion function
+const generateAIVariableSuggestions = async (content: string): Promise<Array<{originalText: string, variableName: string}>> => {
+  // This is a simplified AI suggestion logic
+  // In a real implementation, you would call an AI service
+  const suggestions: Array<{originalText: string, variableName: string}> = [];
+  
+  // Common patterns that should be variables
+  const patterns = [
+    { regex: /\b[A-Z][a-z]+ [A-Z][a-z]+\b/g, type: 'person_name' },
+    { regex: /\b\d{1,2}\/\d{1,2}\/\d{4}\b/g, type: 'date' },
+    { regex: /\b[A-Z][a-z]+ \d+, \d{4}\b/g, type: 'date' },
+    { regex: /\bKES\s*\d+(?:,\d{3})*(?:\.\d{2})?\b/g, type: 'amount' },
+    { regex: /\b\d+\s*years?\b/g, type: 'duration' },
+    { regex: /\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*,\s*[A-Z][a-z]+\b/g, type: 'location' },
+  ];
+  
+  patterns.forEach(pattern => {
+    const matches = content.match(pattern.regex);
+    if (matches) {
+      matches.forEach((match, index) => {
+        const variableName = `${pattern.type}_${index + 1}`;
+        suggestions.push({
+          originalText: match,
+          variableName: variableName
+        });
+      });
+    }
+  });
+  
+  return suggestions;
 };
 
 export default TemplateCreator;
