@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { TemplateService } from "@/services/templateService";
 import { TemplateCategory } from "@/types/database";
+import AIVariableAssistant from "./AIVariableAssistant";
 import { 
   FileText, 
   Upload, 
@@ -38,7 +39,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
   const [isExtracting, setIsExtracting] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
-  const [isAIProcessing, setIsAIProcessing] = useState(false);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -49,7 +50,6 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
       let text = '';
       
       if (file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
-        // Use mammoth to properly extract Word document content
         const arrayBuffer = await file.arrayBuffer();
         const result = await mammoth.extractRawText({ arrayBuffer });
         text = result.value;
@@ -60,24 +60,22 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
       } else if (file.type.includes('text') || file.name.endsWith('.txt')) {
         text = await file.text();
       } else {
-        // Try to read as text anyway
         text = await file.text();
       }
 
       setFormData(prev => ({ ...prev, content: text }));
       
-      // Auto-generate name from filename if not set
       if (!formData.name) {
         const filename = file.name.replace(/\.[^/.]+$/, "");
         setFormData(prev => ({ ...prev, name: filename }));
       }
 
-      // Show the editor for content editing
       setShowEditor(true);
+      setShowAIAssistant(true);
 
       toast({
         title: "File Uploaded Successfully",
-        description: `Document content extracted and ready for editing`,
+        description: `Document content extracted. Use AI Assistant to detect variables automatically.`,
       });
     } catch (error) {
       console.error('File upload error:', error);
@@ -91,57 +89,14 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
     }
   };
 
-  const handleAIVariableSuggestions = async () => {
-    if (!formData.content) {
-      toast({
-        title: "No Content",
-        description: "Please add template content first",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsAIProcessing(true);
-    try {
-      // AI-powered variable detection and suggestion
-      const suggestions = await generateAIVariableSuggestions(formData.content);
-      
-      // Apply AI suggestions to content
-      let updatedContent = formData.content;
-      const newVariables: string[] = [];
-      
-      suggestions.forEach(suggestion => {
-        // Replace suggested text with variable placeholders
-        const variableName = suggestion.variableName;
-        const placeholder = `{{${variableName}}}`;
-        
-        updatedContent = updatedContent.replace(
-          new RegExp(suggestion.originalText, 'gi'), 
-          placeholder
-        );
-        
-        if (!extractedVariables.includes(variableName)) {
-          newVariables.push(variableName);
-        }
-      });
-      
-      setFormData(prev => ({ ...prev, content: updatedContent }));
-      setExtractedVariables(prev => [...prev, ...newVariables]);
-      
-      toast({
-        title: "AI Suggestions Applied",
-        description: `Added ${newVariables.length} new variables based on AI analysis`,
-      });
-    } catch (error) {
-      console.error('AI processing error:', error);
-      toast({
-        title: "AI Processing Failed",
-        description: "Could not generate AI suggestions",
-        variant: "destructive"
-      });
-    } finally {
-      setIsAIProcessing(false);
-    }
+  const handleAIContentUpdate = (content: string, variables: string[]) => {
+    setFormData(prev => ({ ...prev, content }));
+    setExtractedVariables(variables);
+    
+    toast({
+      title: "AI Processing Complete",
+      description: `Applied ${variables.length} variables to the document`,
+    });
   };
 
   const handleAutoExtractVariables = () => {
@@ -212,7 +167,6 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
       if (!extractedVariables.includes(cleanName)) {
         setExtractedVariables(prev => [...prev, cleanName]);
         
-        // Add the variable placeholder to content if not already present
         const placeholder = `{{${cleanName}}}`;
         if (!formData.content.includes(placeholder)) {
           setFormData(prev => ({
@@ -226,7 +180,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-6xl max-h-[95vh] overflow-hidden">
+      <Card className="w-full max-w-7xl max-h-[95vh] overflow-hidden">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center space-x-2">
@@ -283,7 +237,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
               <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
               <p className="text-gray-600 mb-2">Upload a Word document (.docx, .doc) or text file</p>
-              <p className="text-xs text-gray-500 mb-2">Word documents will be properly parsed and formatted</p>
+              <p className="text-xs text-gray-500 mb-2">AI will automatically detect variables and placeholders</p>
               <input
                 type="file"
                 accept=".doc,.docx,.txt"
@@ -299,6 +253,16 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
             </div>
           </div>
 
+          {/* AI Variable Assistant */}
+          {showAIAssistant && formData.content && (
+            <div className="border-t pt-6">
+              <AIVariableAssistant
+                content={formData.content}
+                onContentUpdate={handleAIContentUpdate}
+              />
+            </div>
+          )}
+
           {/* Content Editor */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -307,11 +271,11 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={handleAIVariableSuggestions}
-                  disabled={!formData.content || isAIProcessing}
+                  onClick={() => setShowAIAssistant(!showAIAssistant)}
+                  disabled={!formData.content}
                 >
                   <Bot className="w-4 h-4 mr-2" />
-                  {isAIProcessing ? "AI Processing..." : "AI Suggest Variables"}
+                  {showAIAssistant ? "Hide AI Assistant" : "Show AI Assistant"}
                 </Button>
                 <Button
                   size="sm"
@@ -345,7 +309,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
               id="content"
               value={formData.content}
               onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-              placeholder="Enter your template content or upload a document above. Use {{variable_name}} for dynamic values."
+              placeholder="Enter your template content or upload a document above. The AI will help detect variables and placeholders automatically."
               rows={showEditor ? 12 : 8}
               className={showEditor ? "font-mono text-sm" : ""}
             />
@@ -398,38 +362,6 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
       </Card>
     </div>
   );
-};
-
-// AI-powered variable suggestion function
-const generateAIVariableSuggestions = async (content: string): Promise<Array<{originalText: string, variableName: string}>> => {
-  // This is a simplified AI suggestion logic
-  // In a real implementation, you would call an AI service
-  const suggestions: Array<{originalText: string, variableName: string}> = [];
-  
-  // Common patterns that should be variables
-  const patterns = [
-    { regex: /\b[A-Z][a-z]+ [A-Z][a-z]+\b/g, type: 'person_name' },
-    { regex: /\b\d{1,2}\/\d{1,2}\/\d{4}\b/g, type: 'date' },
-    { regex: /\b[A-Z][a-z]+ \d+, \d{4}\b/g, type: 'date' },
-    { regex: /\bKES\s*\d+(?:,\d{3})*(?:\.\d{2})?\b/g, type: 'amount' },
-    { regex: /\b\d+\s*years?\b/g, type: 'duration' },
-    { regex: /\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*,\s*[A-Z][a-z]+\b/g, type: 'location' },
-  ];
-  
-  patterns.forEach(pattern => {
-    const matches = content.match(pattern.regex);
-    if (matches) {
-      matches.forEach((match, index) => {
-        const variableName = `${pattern.type}_${index + 1}`;
-        suggestions.push({
-          originalText: match,
-          variableName: variableName
-        });
-      });
-    }
-  });
-  
-  return suggestions;
 };
 
 export default TemplateCreator;
