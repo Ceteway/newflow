@@ -17,24 +17,27 @@ export interface DocumentAnalysis {
     text: string;
     position: number;
     suggestedVariable: string;
+    isHighlighted: boolean;
   }>;
 }
 
 export class AIDocumentProcessor {
   /**
-   * Analyze uploaded document and suggest variable placements
+   * Analyze uploaded document and suggest variable placements with enhanced dot detection
    */
   static async analyzeDocument(content: string): Promise<DocumentAnalysis> {
     const suggestions: VariableSuggestion[] = [];
-    const placeholders: Array<{text: string, position: number, suggestedVariable: string}> = [];
+    const placeholders: Array<{text: string, position: number, suggestedVariable: string, isHighlighted: boolean}> = [];
     
-    // Detect placeholders marked with dashes, underscores, or brackets
+    // Enhanced placeholder patterns including dots
     const placeholderPatterns = [
+      { regex: /\.{3,}/g, type: 'dot_placeholder' },
       { regex: /_{3,}/g, type: 'underscore_blank' },
       { regex: /-{3,}/g, type: 'dash_blank' },
       { regex: /\[.*?\]/g, type: 'bracket_placeholder' },
       { regex: /\(.*?\)/g, type: 'parenthesis_placeholder' },
-      { regex: /\b_+\b/g, type: 'single_underscore' }
+      { regex: /\b_+\b/g, type: 'single_underscore' },
+      { regex: /\.\.\.[^.]*\.\.\./g, type: 'triple_dot_enclosed' }
     ];
 
     // Find all placeholder patterns
@@ -51,7 +54,8 @@ export class AIDocumentProcessor {
         placeholders.push({
           text: placeholder,
           position: position,
-          suggestedVariable: suggestedVariable
+          suggestedVariable: suggestedVariable,
+          isHighlighted: true
         });
       }
     });
@@ -128,7 +132,7 @@ export class AIDocumentProcessor {
   }
 
   /**
-   * Apply AI suggestions to document content
+   * Apply AI suggestions to document content with highlighting
    */
   static applyVariableSuggestions(
     content: string, 
@@ -176,6 +180,29 @@ export class AIDocumentProcessor {
     });
 
     return { content: updatedContent, variables };
+  }
+
+  /**
+   * Highlight placeholders in content for editing
+   */
+  static highlightPlaceholders(content: string): string {
+    const placeholderPatterns = [
+      /\.{3,}/g,
+      /_{3,}/g,
+      /-{3,}/g,
+      /\[.*?\]/g,
+      /\(.*?\)/g
+    ];
+
+    let highlightedContent = content;
+    
+    placeholderPatterns.forEach(pattern => {
+      highlightedContent = highlightedContent.replace(pattern, (match) => {
+        return `<span class="bg-green-200 border-2 border-green-400 px-1 rounded cursor-pointer hover:bg-green-300" data-placeholder="${match}">${match}</span>`;
+      });
+    });
+
+    return highlightedContent;
   }
 
   /**

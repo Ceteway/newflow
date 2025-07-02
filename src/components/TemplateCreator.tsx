@@ -237,7 +237,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
               <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
               <p className="text-gray-600 mb-2">Upload a Word document (.docx, .doc) or text file</p>
-              <p className="text-xs text-gray-500 mb-2">AI will automatically detect variables and placeholders</p>
+              <p className="text-xs text-gray-500 mb-2">AI will automatically detect variables and placeholders like dots (...), dashes (---), brackets [text]</p>
               <input
                 type="file"
                 accept=".doc,.docx,.txt"
@@ -309,7 +309,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
               id="content"
               value={formData.content}
               onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-              placeholder="Enter your template content or upload a document above. The AI will help detect variables and placeholders automatically."
+              placeholder="Enter your template content or upload a document above. AI will detect placeholders like dots (...), dashes (---), and brackets [text] automatically."
               rows={showEditor ? 12 : 8}
               className={showEditor ? "font-mono text-sm" : ""}
             />
