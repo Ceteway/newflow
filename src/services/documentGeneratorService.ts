@@ -1,5 +1,6 @@
 
 import { DocumentVariable } from "@/types/database";
+import { Document, Packer, Paragraph, TextRun } from "docx";
 
 export interface GenerationOptions {
   format: 'text' | 'html' | 'docx';
@@ -7,7 +8,7 @@ export interface GenerationOptions {
 }
 
 export interface GenerationResult {
-  content: string;
+  content: string | Uint8Array;
   format: string;
 }
 
@@ -29,20 +30,65 @@ export class DocumentGeneratorService {
     // Format based on requested format
     switch (options.format) {
       case 'html':
-        processedContent = this.convertToHtml(processedContent);
-        break;
+        return {
+          content: this.convertToHtml(processedContent),
+          format: options.format
+        };
       case 'docx':
-        processedContent = this.formatForWord(processedContent);
-        break;
+        const docxBuffer = await this.generateWordDocument(processedContent);
+        return {
+          content: docxBuffer,
+          format: options.format
+        };
       case 'text':
       default:
-        processedContent = this.cleanTextFormat(processedContent);
+        return {
+          content: this.cleanTextFormat(processedContent),
+          format: options.format
+        };
     }
+  }
 
-    return {
-      content: processedContent,
-      format: options.format
-    };
+  private static async generateWordDocument(content: string): Promise<Uint8Array> {
+    // Split content into paragraphs
+    const paragraphs = content.split('\n').map(line => {
+      if (line.trim() === '') {
+        return new Paragraph({
+          children: [new TextRun({ text: "" })],
+        });
+      }
+
+      // Check if line should be bold (titles, headers)
+      const isBold = line.toUpperCase() === line && line.trim().length > 0 && 
+                    !line.includes(':') && !line.includes('_');
+      
+      // Check if line is a signature line
+      const isSignatureLine = line.includes('_____') || line.includes('Landlord:') || line.includes('Tenant:');
+
+      return new Paragraph({
+        children: [
+          new TextRun({
+            text: line,
+            bold: isBold,
+            underline: isSignatureLine ? {} : undefined,
+          }),
+        ],
+        spacing: {
+          after: 120, // Add some spacing between paragraphs
+        }
+      });
+    });
+
+    const doc = new Document({
+      sections: [
+        {
+          properties: {},
+          children: paragraphs,
+        },
+      ],
+    });
+
+    return await Packer.toBuffer(doc);
   }
 
   private static convertToHtml(content: string): string {
@@ -53,13 +99,6 @@ export class DocumentGeneratorService {
       .replace(/<p><\/p>/g, '');
   }
 
-  private static formatForWord(content: string): string {
-    // Basic Word formatting - in a real app you'd use a library like docx
-    return content
-      .replace(/\n/g, '\r\n')
-      .trim();
-  }
-
   private static cleanTextFormat(content: string): string {
     return content
       .replace(/\s+/g, ' ')
@@ -67,20 +106,22 @@ export class DocumentGeneratorService {
       .trim();
   }
 
-  static downloadDocument(content: string, filename: string, format: 'text' | 'html' | 'docx'): void {
+  static downloadDocument(content: string | Uint8Array, filename: string, format: 'text' | 'html' | 'docx'): void {
     let mimeType: string;
     let fileExtension: string;
-    let processedContent = content;
+    let processedContent: string | Uint8Array = content;
 
     switch (format) {
       case 'html':
         mimeType = 'text/html';
         fileExtension = 'html';
-        processedContent = `<!DOCTYPE html><html><head><title>${filename}</title></head><body>${content}</body></html>`;
+        if (typeof content === 'string') {
+          processedContent = `<!DOCTYPE html><html><head><title>${filename}</title></head><body>${content}</body></html>`;
+        }
         break;
       case 'docx':
         mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-        fileExtension = 'doc';
+        fileExtension = 'docx';
         break;
       case 'text':
       default:

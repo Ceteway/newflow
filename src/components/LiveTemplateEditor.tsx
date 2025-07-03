@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -52,7 +51,7 @@ const LiveTemplateEditor = ({ template, onClose, onSave }: LiveTemplateEditorPro
         variables,
         { format: 'text', includeFormatting: true }
       );
-      setPreviewContent(result.content);
+      setPreviewContent(result.content as string);
     } catch (error) {
       console.error('Preview generation failed:', error);
     }
@@ -181,7 +180,7 @@ const LiveTemplateEditor = ({ template, onClose, onSave }: LiveTemplateEditorPro
       
       toast({
         title: "Document Downloaded",
-        description: "Document has been generated and downloaded",
+        description: "Document has been generated and downloaded as Word format",
       });
     } catch (error) {
       toast({

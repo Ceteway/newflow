@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -133,7 +132,7 @@ const TemplateVariableEditor = ({ template, onClose }: TemplateVariableEditorPro
         { format: 'text', includeFormatting: true }
       );
       
-      setGeneratedContent(result.content);
+      setGeneratedContent(result.content as string);
     } catch (error) {
       toast({
         title: "Preview Failed",
@@ -250,7 +249,7 @@ const TemplateVariableEditor = ({ template, onClose }: TemplateVariableEditorPro
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="docx">Word Document (.doc)</SelectItem>
+                    <SelectItem value="docx">Word Document (.docx)</SelectItem>
                     <SelectItem value="html">HTML Document (.html)</SelectItem>
                     <SelectItem value="text">Text Document (.txt)</SelectItem>
                   </SelectContent>
