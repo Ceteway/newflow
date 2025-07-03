@@ -178,6 +178,74 @@ export class AIDocumentProcessor {
   }
 
   /**
+   * Generate smart variable name based on context and placeholder
+   */
+  static generateSmartVariableName(context: string, placeholder: string): string {
+    const contextLower = context.toLowerCase();
+    
+    // Context-based variable mappings
+    const contextMappings = [
+      // Names and parties
+      { keywords: ['landlord', 'lessor', 'owner'], variable: 'landlord_name' },
+      { keywords: ['tenant', 'lessee', 'renter'], variable: 'tenant_name' },
+      { keywords: ['witness', 'witnessed by'], variable: 'witness_name' },
+      { keywords: ['agent', 'representative'], variable: 'agent_name' },
+      { keywords: ['company', 'corporation', 'ltd'], variable: 'company_name' },
+      
+      // Dates
+      { keywords: ['date', 'dated', 'day of'], variable: 'date' },
+      { keywords: ['commencement', 'start', 'beginning'], variable: 'commencement_date' },
+      { keywords: ['expiry', 'expiration', 'end', 'termination'], variable: 'expiry_date' },
+      { keywords: ['birth', 'born'], variable: 'birth_date' },
+      
+      // Locations and addresses
+      { keywords: ['address', 'located at', 'situate'], variable: 'address' },
+      { keywords: ['site', 'premises', 'property'], variable: 'site_location' },
+      { keywords: ['county', 'district'], variable: 'county' },
+      { keywords: ['city', 'town'], variable: 'city' },
+      { keywords: ['postal', 'p.o', 'box'], variable: 'postal_address' },
+      
+      // Financial terms
+      { keywords: ['rent', 'rental'], variable: 'monthly_rent' },
+      { keywords: ['deposit', 'security'], variable: 'deposit_amount' },
+      { keywords: ['amount', 'sum', 'total'], variable: 'amount' },
+      { keywords: ['salary', 'wage'], variable: 'salary' },
+      { keywords: ['fee', 'charge'], variable: 'fee_amount' },
+      
+      // Legal and reference
+      { keywords: ['title', 'title number'], variable: 'title_number' },
+      { keywords: ['reference', 'ref', 'no.'], variable: 'reference_number' },
+      { keywords: ['license', 'permit'], variable: 'license_number' },
+      { keywords: ['id', 'identification'], variable: 'id_number' },
+      
+      // Contract terms
+      { keywords: ['term', 'period', 'duration'], variable: 'lease_term' },
+      { keywords: ['escalation', 'increase'], variable: 'escalation_rate' },
+      { keywords: ['area', 'size', 'square'], variable: 'area_size' },
+      
+      // Contact information
+      { keywords: ['phone', 'telephone', 'mobile'], variable: 'phone_number' },
+      { keywords: ['email', 'e-mail'], variable: 'email_address' },
+      { keywords: ['fax'], variable: 'fax_number' }
+    ];
+
+    // Check for context matches
+    for (const mapping of contextMappings) {
+      if (mapping.keywords.some(keyword => contextLower.includes(keyword))) {
+        return mapping.variable;
+      }
+    }
+
+    // Fallback based on placeholder pattern
+    if (placeholder.includes('.')) return 'field_value';
+    if (placeholder.includes('_')) return 'fill_blank';
+    if (placeholder.includes('-')) return 'enter_value';
+    
+    // Generic fallback
+    return 'variable_name';
+  }
+
+  /**
    * Generate intelligent variable names based on context
    */
   static generateIntelligentVariableName(
