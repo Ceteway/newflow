@@ -15,7 +15,9 @@ import {
   CheckCircle, 
   AlertCircle,
   Edit3,
-  Plus
+  Plus,
+  Eye,
+  FileText
 } from "lucide-react";
 
 interface AIVariableAssistantProps {
@@ -38,7 +40,7 @@ const AIVariableAssistant = ({ content, onContentUpdate, onClose }: AIVariableAs
       const result = await AIDocumentProcessor.analyzeDocument(content);
       setAnalysis(result);
       
-      // Pre-populate placeholder mappings
+      // Pre-populate placeholder mappings with intelligent suggestions
       const mappings = result.placeholders.map(p => ({
         original: p.text,
         variable: p.suggestedVariable
@@ -46,8 +48,8 @@ const AIVariableAssistant = ({ content, onContentUpdate, onClose }: AIVariableAs
       setPlaceholderMappings(mappings);
       
       toast({
-        title: "Document Analyzed",
-        description: `Found ${result.suggestions.length} variable suggestions and ${result.placeholders.length} placeholders`,
+        title: "Universal Blank Detection Complete",
+        description: `Found ${result.suggestions.length} data suggestions and ${result.placeholders.length} blank fields to fill`,
       });
     } catch (error) {
       console.error('Analysis error:', error);
@@ -85,7 +87,7 @@ const AIVariableAssistant = ({ content, onContentUpdate, onClose }: AIVariableAs
     let updatedContent = editedContent;
     let allVariables: string[] = [];
 
-    // Apply variable suggestions
+    // Apply variable suggestions first
     if (selectedSuggestions.length > 0) {
       const suggestionResult = AIDocumentProcessor.applyVariableSuggestions(
         updatedContent, 
@@ -96,7 +98,7 @@ const AIVariableAssistant = ({ content, onContentUpdate, onClose }: AIVariableAs
       allVariables = [...allVariables, ...suggestionResult.variables];
     }
 
-    // Apply placeholder mappings
+    // Apply placeholder mappings (blank line conversions)
     if (placeholderMappings.length > 0) {
       const placeholderResult = AIDocumentProcessor.replacePlaceholders(
         updatedContent,
@@ -112,8 +114,8 @@ const AIVariableAssistant = ({ content, onContentUpdate, onClose }: AIVariableAs
     onContentUpdate(updatedContent, uniqueVariables);
     
     toast({
-      title: "Variables Applied",
-      description: `Applied ${uniqueVariables.length} variables to the document`,
+      title: "Variables Applied Successfully",
+      description: `Applied ${uniqueVariables.length} variables to the document. All blank fields are now fillable variables.`,
     });
   };
 
@@ -142,8 +144,12 @@ const AIVariableAssistant = ({ content, onContentUpdate, onClose }: AIVariableAs
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Bot className="w-5 h-5" />
-            <span>AI Variable Assistant</span>
+            <span>Universal AI Blank Line Detector</span>
           </CardTitle>
+          <p className="text-sm text-gray-600">
+            Automatically detects and converts any blank lines marked with dots (...), dashes (---), 
+            underscores (___), or other placeholder patterns into fillable variables.
+          </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex space-x-2">
@@ -153,24 +159,73 @@ const AIVariableAssistant = ({ content, onContentUpdate, onClose }: AIVariableAs
               className="flex-1"
             >
               <Wand2 className="w-4 h-4 mr-2" />
-              {isAnalyzing ? "Analyzing..." : "Analyze Document"}
+              {isAnalyzing ? "Scanning Document..." : "Scan for Blank Fields"}
             </Button>
             {analysis && (
               <Button onClick={handleApplyChanges} className="bg-green-600 hover:bg-green-700">
                 <CheckCircle className="w-4 h-4 mr-2" />
-                Apply Changes
+                Apply All Changes
               </Button>
             )}
           </div>
 
           {analysis && (
             <div className="space-y-6">
-              {/* Variable Suggestions */}
+              {/* Detected Blank Fields */}
+              {analysis.placeholders.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="font-semibold flex items-center space-x-2">
+                    <Edit3 className="w-4 h-4" />
+                    <span>Detected Blank Fields ({analysis.placeholders.length})</span>
+                  </h3>
+                  <div className="space-y-3 max-h-80 overflow-y-auto">
+                    {placeholderMappings.map((mapping, index) => {
+                      const placeholder = analysis.placeholders.find(p => p.text === mapping.original);
+                      return (
+                        <div key={index} className="p-4 border rounded-lg bg-green-50">
+                          <div className="flex items-start space-x-3 mb-2">
+                            <span className="text-lg">{getCategoryIcon(placeholder?.category || 'other')}</span>
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2 mb-1">
+                                <code className="bg-gray-200 px-2 py-1 rounded text-sm font-mono">
+                                  {mapping.original}
+                                </code>
+                                <span>→</span>
+                                <Badge variant="outline">
+                                  {`{{${mapping.variable}}}`}
+                                </Badge>
+                                <Badge className="bg-green-100 text-green-800">
+                                  {placeholder?.category || 'field'}
+                                </Badge>
+                              </div>
+                              {placeholder?.contextPreview && (
+                                <p className="text-xs text-gray-600 bg-white p-2 rounded border italic">
+                                  Context: "{placeholder.contextPreview}"
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="ml-8">
+                            <Input
+                              value={mapping.variable}
+                              onChange={(e) => handlePlaceholderVariableChange(mapping.original, e.target.value)}
+                              placeholder="Enter variable name"
+                              className="text-sm"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* AI Data Suggestions */}
               {analysis.suggestions.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="font-semibold flex items-center space-x-2">
                     <AlertCircle className="w-4 h-4" />
-                    <span>AI Variable Suggestions ({analysis.suggestions.length})</span>
+                    <span>AI Data Pattern Suggestions ({analysis.suggestions.length})</span>
                   </h3>
                   <div className="space-y-2 max-h-64 overflow-y-auto">
                     {analysis.suggestions.slice(0, 10).map((suggestion, index) => (
@@ -194,34 +249,9 @@ const AIVariableAssistant = ({ content, onContentUpdate, onClose }: AIVariableAs
                             </Badge>
                           </div>
                           <p className="text-xs text-gray-600">{suggestion.reason}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Placeholder Mappings */}
-              {analysis.placeholders.length > 0 && (
-                <div className="space-y-3">
-                  <h3 className="font-semibold flex items-center space-x-2">
-                    <Edit3 className="w-4 h-4" />
-                    <span>Detected Placeholders ({analysis.placeholders.length})</span>
-                  </h3>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {placeholderMappings.map((mapping, index) => (
-                      <div key={index} className="flex items-center space-x-3 p-3 border rounded-lg">
-                        <code className="bg-gray-100 px-2 py-1 rounded text-sm min-w-fit">
-                          {mapping.original}
-                        </code>
-                        <span>→</span>
-                        <div className="flex-1">
-                          <Input
-                            value={mapping.variable}
-                            onChange={(e) => handlePlaceholderVariableChange(mapping.original, e.target.value)}
-                            placeholder="Enter variable name"
-                            className="text-sm"
-                          />
+                          {suggestion.contextPreview && (
+                            <p className="text-xs text-gray-500 italic mt-1">"{suggestion.contextPreview}"</p>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -235,13 +265,23 @@ const AIVariableAssistant = ({ content, onContentUpdate, onClose }: AIVariableAs
                 <Textarea
                   value={editedContent}
                   onChange={(e) => setEditedContent(e.target.value)}
-                  rows={12}
+                  rows={10}
                   className="font-mono text-sm"
                 />
                 <p className="text-xs text-gray-500">
                   You can manually edit the content above before applying AI suggestions
                 </p>
               </div>
+            </div>
+          )}
+
+          {analysis?.placeholders.length === 0 && analysis?.suggestions.length === 0 && analysis && (
+            <div className="text-center py-8">
+              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">
+                No blank fields or data patterns detected in this document. 
+                The document may already be complete or use different placeholder formats.
+              </p>
             </div>
           )}
         </CardContent>

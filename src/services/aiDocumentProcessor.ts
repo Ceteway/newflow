@@ -1,4 +1,3 @@
-
 import { DocumentGeneratorService } from './documentGeneratorService';
 
 export interface VariableSuggestion {
@@ -8,6 +7,7 @@ export interface VariableSuggestion {
   confidence: number;
   reason: string;
   category: 'date' | 'name' | 'address' | 'amount' | 'location' | 'reference' | 'other';
+  contextPreview: string;
 }
 
 export interface DocumentAnalysis {
@@ -18,49 +18,105 @@ export interface DocumentAnalysis {
     position: number;
     suggestedVariable: string;
     isHighlighted: boolean;
+    contextPreview: string;
+    category: string;
   }>;
 }
 
 export class AIDocumentProcessor {
   /**
-   * Analyze uploaded document and suggest variable placements with enhanced dot detection
+   * Universal document analyzer that detects all types of blank lines and placeholders
    */
   static async analyzeDocument(content: string): Promise<DocumentAnalysis> {
     const suggestions: VariableSuggestion[] = [];
-    const placeholders: Array<{text: string, position: number, suggestedVariable: string, isHighlighted: boolean}> = [];
+    const placeholders: Array<{
+      text: string, 
+      position: number, 
+      suggestedVariable: string, 
+      isHighlighted: boolean,
+      contextPreview: string,
+      category: string
+    }> = [];
     
-    // Enhanced placeholder patterns including dots
+    // Enhanced universal placeholder patterns
     const placeholderPatterns = [
-      { regex: /\.{3,}/g, type: 'dot_placeholder' },
-      { regex: /_{3,}/g, type: 'underscore_blank' },
-      { regex: /-{3,}/g, type: 'dash_blank' },
-      { regex: /\[.*?\]/g, type: 'bracket_placeholder' },
-      { regex: /\(.*?\)/g, type: 'parenthesis_placeholder' },
-      { regex: /\b_+\b/g, type: 'single_underscore' },
-      { regex: /\.\.\.[^.]*\.\.\./g, type: 'triple_dot_enclosed' }
+      { regex: /\.{2,}/g, type: 'dots', minLength: 2 },
+      { regex: /…{1,}/g, type: 'ellipsis', minLength: 1 },
+      { regex: /_{2,}/g, type: 'underscores', minLength: 2 },
+      { regex: /-{2,}/g, type: 'dashes', minLength: 2 },
+      { regex: /={2,}/g, type: 'equals', minLength: 2 },
+      { regex: /\*{2,}/g, type: 'asterisks', minLength: 2 },
+      { regex: /#{2,}/g, type: 'hashes', minLength: 2 },
+      { regex: /\[[\s\w]*\]/g, type: 'brackets' },
+      { regex: /\([\s\w]*\)/g, type: 'parentheses' },
+      { regex: /\{[\s\w]*\}/g, type: 'braces' },
+      { regex: /_+\s*_+/g, type: 'spaced_underscores' },
+      // Special patterns for common document formats
+      { regex: /\b_+\b/g, type: 'isolated_underscores' },
+      { regex: /\[.*?\]/g, type: 'bracket_content' },
+      { regex: /\(.*?\)/g, type: 'parenthesis_content' },
+      // Date-like placeholders
+      { regex: /__\/__\/__/g, type: 'date_slashes' },
+      { regex: /dd\/mm\/yyyy/gi, type: 'date_format' },
+      { regex: /mm\/dd\/yyyy/gi, type: 'date_format_us' },
+      // Amount placeholders
+      { regex: /\$___/g, type: 'currency_blank' },
+      { regex: /KES\s*___/g, type: 'kes_blank' },
+      // Line patterns
+      { regex: /^\s*[-_=.]{5,}\s*$/gm, type: 'full_line_blanks' }
     ];
 
-    // Find all placeholder patterns
+    let fieldCounter = 1;
+
+    // Process each pattern type
     placeholderPatterns.forEach(pattern => {
       let match;
       while ((match = pattern.regex.exec(content)) !== null) {
         const placeholder = match[0];
         const position = match.index;
         
-        // Determine what type of variable this should be based on context
-        const context = this.getContextAroundPosition(content, position, 50);
-        const suggestedVariable = this.suggestVariableFromContext(context, placeholder);
-        
+        // Skip if it's too short for certain patterns
+        if (pattern.minLength && placeholder.length < pattern.minLength) {
+          continue;
+        }
+
+        // Skip common words in brackets/parentheses that aren't placeholders
+        if ((pattern.type === 'bracket_content' || pattern.type === 'parenthesis_content') && 
+            /^[\[\(]\s*(the|and|or|of|in|on|at|to|for|with|by)\s*[\]\)]$/i.test(placeholder)) {
+          continue;
+        }
+
+        // Get context around the placeholder
+        const contextRadius = 80;
+        const contextStart = Math.max(0, position - contextRadius);
+        const contextEnd = Math.min(content.length, position + placeholder.length + contextRadius);
+        const contextPreview = content.substring(contextStart, contextEnd).trim();
+
+        // Generate intelligent variable name based on context
+        const suggestedVariable = this.generateIntelligentVariableName(
+          contextPreview, 
+          placeholder, 
+          pattern.type,
+          fieldCounter
+        );
+
+        // Determine category based on context and pattern
+        const category = this.determineVariableCategory(contextPreview, placeholder, pattern.type);
+
         placeholders.push({
           text: placeholder,
           position: position,
           suggestedVariable: suggestedVariable,
-          isHighlighted: true
+          isHighlighted: true,
+          contextPreview: this.cleanContextPreview(contextPreview, placeholder),
+          category: category
         });
+
+        fieldCounter++;
       }
     });
 
-    // Detect specific data patterns that should be variables
+    // Also detect specific data patterns for suggestions
     const dataPatterns = [
       {
         regex: /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b/g,
@@ -78,48 +134,38 @@ export class AIDocumentProcessor {
         variablePrefix: 'name'
       },
       {
-        regex: /\bKES\s*[\d,]+(?:\.\d{2})?\b/g,
+        regex: /\b(?:KES|USD|\$)\s*[\d,]+(?:\.\d{2})?\b/g,
         category: 'amount' as const,
         variablePrefix: 'amount'
-      },
-      {
-        regex: /\b\d+\s*(?:years?|months?|days?)\b/g,
-        category: 'date' as const,
-        variablePrefix: 'duration'
-      },
-      {
-        regex: /\b[A-Z]+\/[A-Z]+\/\d+\b/g,
-        category: 'reference' as const,
-        variablePrefix: 'reference'
-      },
-      {
-        regex: /\bP\.O\.?\s*Box\s*\d+/g,
-        category: 'address' as const,
-        variablePrefix: 'address'
       }
     ];
 
-    // Analyze each pattern
+    // Analyze data patterns for suggestions
     dataPatterns.forEach(pattern => {
       let match;
       let counter = 1;
       while ((match = pattern.regex.exec(content)) !== null) {
         const originalText = match[0];
         const position = match.index;
-        const context = this.getContextAroundPosition(content, position, 30);
+        const contextPreview = this.getContextAroundPosition(content, position, 50);
         
         suggestions.push({
           originalText,
           variableName: `${pattern.variablePrefix}_${counter}`,
           position,
-          confidence: this.calculateConfidence(originalText, pattern.category, context),
-          reason: this.generateReason(originalText, pattern.category, context),
-          category: pattern.category
+          confidence: this.calculateConfidence(originalText, pattern.category, contextPreview),
+          reason: this.generateReason(originalText, pattern.category, contextPreview),
+          category: pattern.category,
+          contextPreview: this.cleanContextPreview(contextPreview, originalText)
         });
         
         counter++;
       }
     });
+
+    // Remove duplicates and sort placeholders by position
+    const uniquePlaceholders = this.removeDuplicatePlaceholders(placeholders);
+    uniquePlaceholders.sort((a, b) => a.position - b.position);
 
     // Sort suggestions by confidence
     suggestions.sort((a, b) => b.confidence - a.confidence);
@@ -127,8 +173,135 @@ export class AIDocumentProcessor {
     return {
       content,
       suggestions,
-      placeholders
+      placeholders: uniquePlaceholders
     };
+  }
+
+  /**
+   * Generate intelligent variable names based on context
+   */
+  static generateIntelligentVariableName(
+    context: string, 
+    placeholder: string, 
+    patternType: string,
+    fallbackNumber: number
+  ): string {
+    const contextLower = context.toLowerCase();
+    
+    // Context-based variable mappings
+    const contextMappings = [
+      // Names and parties
+      { keywords: ['landlord', 'lessor', 'owner'], variable: 'landlord_name' },
+      { keywords: ['tenant', 'lessee', 'renter'], variable: 'tenant_name' },
+      { keywords: ['witness', 'witnessed by'], variable: 'witness_name' },
+      { keywords: ['agent', 'representative'], variable: 'agent_name' },
+      { keywords: ['company', 'corporation', 'ltd'], variable: 'company_name' },
+      
+      // Dates
+      { keywords: ['date', 'dated', 'day of'], variable: 'date' },
+      { keywords: ['commencement', 'start', 'beginning'], variable: 'commencement_date' },
+      { keywords: ['expiry', 'expiration', 'end', 'termination'], variable: 'expiry_date' },
+      { keywords: ['birth', 'born'], variable: 'birth_date' },
+      
+      // Locations and addresses
+      { keywords: ['address', 'located at', 'situate'], variable: 'address' },
+      { keywords: ['site', 'premises', 'property'], variable: 'site_location' },
+      { keywords: ['county', 'district'], variable: 'county' },
+      { keywords: ['city', 'town'], variable: 'city' },
+      { keywords: ['postal', 'p.o', 'box'], variable: 'postal_address' },
+      
+      // Financial terms
+      { keywords: ['rent', 'rental'], variable: 'monthly_rent' },
+      { keywords: ['deposit', 'security'], variable: 'deposit_amount' },
+      { keywords: ['amount', 'sum', 'total'], variable: 'amount' },
+      { keywords: ['salary', 'wage'], variable: 'salary' },
+      { keywords: ['fee', 'charge'], variable: 'fee_amount' },
+      
+      // Legal and reference
+      { keywords: ['title', 'title number'], variable: 'title_number' },
+      { keywords: ['reference', 'ref', 'no.'], variable: 'reference_number' },
+      { keywords: ['license', 'permit'], variable: 'license_number' },
+      { keywords: ['id', 'identification'], variable: 'id_number' },
+      
+      // Contract terms
+      { keywords: ['term', 'period', 'duration'], variable: 'lease_term' },
+      { keywords: ['escalation', 'increase'], variable: 'escalation_rate' },
+      { keywords: ['area', 'size', 'square'], variable: 'area_size' },
+      
+      // Contact information
+      { keywords: ['phone', 'telephone', 'mobile'], variable: 'phone_number' },
+      { keywords: ['email', 'e-mail'], variable: 'email_address' },
+      { keywords: ['fax'], variable: 'fax_number' }
+    ];
+
+    // Check for context matches
+    for (const mapping of contextMappings) {
+      if (mapping.keywords.some(keyword => contextLower.includes(keyword))) {
+        return mapping.variable;
+      }
+    }
+
+    // Pattern-based fallbacks
+    if (patternType === 'date_format' || patternType === 'date_slashes') {
+      return `date_${fallbackNumber}`;
+    }
+    if (patternType === 'currency_blank' || patternType === 'kes_blank') {
+      return `amount_${fallbackNumber}`;
+    }
+
+    // Generic fallback
+    return `field_${fallbackNumber}`;
+  }
+
+  /**
+   * Determine variable category based on context
+   */
+  static determineVariableCategory(context: string, placeholder: string, patternType: string): string {
+    const contextLower = context.toLowerCase();
+
+    if (patternType.includes('date') || contextLower.includes('date') || contextLower.includes('day')) {
+      return 'date';
+    }
+    if (patternType.includes('currency') || contextLower.includes('amount') || contextLower.includes('rent') || contextLower.includes('fee')) {
+      return 'amount';
+    }
+    if (contextLower.includes('name') || contextLower.includes('landlord') || contextLower.includes('tenant')) {
+      return 'name';
+    }
+    if (contextLower.includes('address') || contextLower.includes('location') || contextLower.includes('premises')) {
+      return 'address';
+    }
+    if (contextLower.includes('number') || contextLower.includes('ref') || contextLower.includes('id')) {
+      return 'reference';
+    }
+
+    return 'other';
+  }
+
+  /**
+   * Clean and format context preview for display
+   */
+  static cleanContextPreview(context: string, placeholder: string): string {
+    // Replace the placeholder with a highlighted marker
+    const cleanContext = context.replace(placeholder, '***BLANK***');
+    
+    // Clean up extra whitespace
+    return cleanContext.replace(/\s+/g, ' ').trim();
+  }
+
+  /**
+   * Remove duplicate placeholders based on position and content
+   */
+  static removeDuplicatePlaceholders(placeholders: Array<any>): Array<any> {
+    const seen = new Set();
+    return placeholders.filter(placeholder => {
+      const key = `${placeholder.position}-${placeholder.text}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
   }
 
   /**
@@ -170,9 +343,15 @@ export class AIDocumentProcessor {
     let updatedContent = content;
     const variables: string[] = [];
 
-    placeholderMappings.forEach(mapping => {
+    // Sort by position (longest first to avoid partial replacements)
+    const sortedMappings = placeholderMappings
+      .filter(mapping => mapping.variable.trim() !== '')
+      .sort((a, b) => b.original.length - a.original.length);
+
+    sortedMappings.forEach(mapping => {
       const placeholder = `{{${mapping.variable}}}`;
-      updatedContent = updatedContent.replace(new RegExp(mapping.original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), placeholder);
+      const escapedOriginal = mapping.original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      updatedContent = updatedContent.replace(new RegExp(escapedOriginal, 'g'), placeholder);
       
       if (!variables.includes(mapping.variable)) {
         variables.push(mapping.variable);
@@ -187,58 +366,29 @@ export class AIDocumentProcessor {
    */
   static highlightPlaceholders(content: string): string {
     const placeholderPatterns = [
-      /\.{3,}/g,
-      /_{3,}/g,
-      /-{3,}/g,
+      /\.{2,}/g,
+      /…{1,}/g,
+      /_{2,}/g,
+      /-{2,}/g,
+      /={2,}/g,
+      /\*{2,}/g,
+      /#{2,}/g,
       /\[.*?\]/g,
-      /\(.*?\)/g
+      /\(.*?\)/g,
+      /\{.*?\}/g,
+      /_+\s*_+/g,
+      /\b_+\b/g
     ];
 
     let highlightedContent = content;
     
     placeholderPatterns.forEach(pattern => {
       highlightedContent = highlightedContent.replace(pattern, (match) => {
-        return `<span class="bg-green-200 border-2 border-green-400 px-1 rounded cursor-pointer hover:bg-green-300" data-placeholder="${match}">${match}</span>`;
+        return `<span class="bg-green-200 border-2 border-green-400 px-1 rounded cursor-pointer hover:bg-green-300" data-placeholder="${match}" title="Click to convert to variable">${match}</span>`;
       });
     });
 
     return highlightedContent;
-  }
-
-  /**
-   * Generate smart variable names based on template reference
-   */
-  static generateSmartVariableName(context: string, placeholder: string): string {
-    const contextLower = context.toLowerCase();
-    
-    // Template variable mappings
-    const variableMappings = [
-      { keywords: ['landlord', 'owner'], variable: 'landlord_name' },
-      { keywords: ['tenant', 'safaricom'], variable: 'tenant_name' },
-      { keywords: ['site', 'location', 'premises'], variable: 'site_location' },
-      { keywords: ['rent', 'rental', 'monthly'], variable: 'monthly_rent' },
-      { keywords: ['deposit', 'security'], variable: 'deposit' },
-      { keywords: ['date', 'commencement', 'start'], variable: 'commencement_date' },
-      { keywords: ['expiry', 'end', 'termination'], variable: 'expiry_date' },
-      { keywords: ['title', 'number'], variable: 'title_number' },
-      { keywords: ['address', 'postal'], variable: 'address' },
-      { keywords: ['term', 'period'], variable: 'lease_term' },
-      { keywords: ['escalation', 'increase'], variable: 'escalation_rate' },
-      { keywords: ['county'], variable: 'county' },
-      { keywords: ['sub county'], variable: 'sub_county' },
-      { keywords: ['area', 'size'], variable: 'land_area' }
-    ];
-
-    for (const mapping of variableMappings) {
-      if (mapping.keywords.some(keyword => contextLower.includes(keyword))) {
-        return mapping.variable;
-      }
-    }
-
-    // Generate generic variable name
-    const words = context.match(/\b[a-zA-Z]+\b/g) || [];
-    const relevantWords = words.slice(-3).join('_').toLowerCase();
-    return relevantWords || 'custom_field';
   }
 
   private static getContextAroundPosition(content: string, position: number, radius: number): string {
@@ -247,16 +397,12 @@ export class AIDocumentProcessor {
     return content.substring(start, end);
   }
 
-  private static suggestVariableFromContext(context: string, placeholder: string): string {
-    return this.generateSmartVariableName(context, placeholder);
-  }
-
   private static calculateConfidence(text: string, category: string, context: string): number {
     let confidence = 0.5;
     
     // Increase confidence based on pattern strength
     if (category === 'date' && /\d{4}/.test(text)) confidence += 0.3;
-    if (category === 'amount' && /KES/.test(text)) confidence += 0.4;
+    if (category === 'amount' && /(KES|USD|\$)/.test(text)) confidence += 0.4;
     if (category === 'name' && /^[A-Z]/.test(text)) confidence += 0.2;
     if (category === 'reference' && /\//.test(text)) confidence += 0.3;
     
@@ -276,6 +422,7 @@ export class AIDocumentProcessor {
       'amount': `Currency amount detected: ${text}`,
       'location': `Location reference: ${text}`,
       'reference': `Document reference pattern: ${text}`,
+      'address': `Address pattern detected: ${text}`,
       'other': `Pattern detected: ${text}`
     };
     
