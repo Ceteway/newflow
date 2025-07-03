@@ -190,7 +190,10 @@ export class AIDocumentProcessor {
     mappings.forEach(mapping => {
       if (mapping.variable.trim()) {
         const placeholder = `{{${mapping.variable}}}`;
-        updatedContent = updatedContent.replaceAll(mapping.original, placeholder);
+        // Use replace with global regex instead of replaceAll for compatibility
+        const escapedOriginal = mapping.original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(escapedOriginal, 'g');
+        updatedContent = updatedContent.replace(regex, placeholder);
         variables.push(mapping.variable);
       }
     });

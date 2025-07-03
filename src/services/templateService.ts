@@ -30,7 +30,11 @@ export class TemplateService {
       throw new Error('Failed to create template');
     }
 
-    return template;
+    // Convert variables from Json to string[] for type safety
+    return {
+      ...template,
+      variables: Array.isArray(template.variables) ? template.variables as string[] : []
+    };
   }
 
   static async getAllTemplates(): Promise<DatabaseTemplate[]> {
@@ -45,7 +49,11 @@ export class TemplateService {
       throw new Error('Failed to fetch templates');
     }
 
-    return templates || [];
+    // Convert variables from Json to string[] for type safety
+    return (templates || []).map(template => ({
+      ...template,
+      variables: Array.isArray(template.variables) ? template.variables as string[] : []
+    }));
   }
 
   static async getTemplateById(id: string): Promise<DatabaseTemplate | null> {
@@ -60,7 +68,11 @@ export class TemplateService {
       return null;
     }
 
-    return template;
+    // Convert variables from Json to string[] for type safety
+    return {
+      ...template,
+      variables: Array.isArray(template.variables) ? template.variables as string[] : []
+    };
   }
 
   static async updateTemplate(id: string, updates: Partial<CreateTemplateData>): Promise<DatabaseTemplate> {
@@ -79,7 +91,11 @@ export class TemplateService {
       throw new Error('Failed to update template');
     }
 
-    return template;
+    // Convert variables from Json to string[] for type safety
+    return {
+      ...template,
+      variables: Array.isArray(template.variables) ? template.variables as string[] : []
+    };
   }
 
   static async deleteTemplate(id: string): Promise<void> {
@@ -100,6 +116,12 @@ export class TemplateService {
       throw new Error('Template not found');
     }
 
+    // Convert DocumentVariable[] to a plain object for Json compatibility
+    const variablesData = variables.reduce((acc, variable) => {
+      acc[variable.key] = variable.value;
+      return acc;
+    }, {} as Record<string, string>);
+
     // Create generated document record
     const { data: document, error } = await supabase
       .from('generated_documents')
@@ -107,7 +129,7 @@ export class TemplateService {
         name: `${template.name}_${new Date().getTime()}`,
         template_id: templateId,
         content: template.content,
-        variables_data: variables,
+        variables_data: variablesData,
         status: 'completed'
       })
       .select()
