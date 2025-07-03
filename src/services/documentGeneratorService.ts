@@ -1,6 +1,6 @@
 
 import { DocumentVariable } from "@/types/database";
-import { Document, Packer, Paragraph, TextRun } from "docx";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 
 export interface GenerationOptions {
   format: 'text' | 'html' | 'docx';
@@ -50,42 +50,96 @@ export class DocumentGeneratorService {
   }
 
   private static async generateWordDocument(content: string): Promise<Uint8Array> {
-    // Split content into paragraphs
-    const paragraphs = content.split('\n').map(line => {
+    const lines = content.split('\n');
+    const paragraphs: Paragraph[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
       if (line.trim() === '') {
-        return new Paragraph({
+        // Add empty paragraph for spacing
+        paragraphs.push(new Paragraph({
           children: [new TextRun({ text: "" })],
-        });
+          spacing: { after: 120 }
+        }));
+        continue;
       }
 
-      // Check if line should be bold (titles, headers)
-      const isBold = line.toUpperCase() === line && line.trim().length > 0 && 
-                    !line.includes(':') && !line.includes('_');
-      
-      // Check if line is a signature line
-      const isSignatureLine = line.includes('_____') || line.includes('Landlord:') || line.includes('Tenant:');
+      // Detect headings (all caps lines without special characters)
+      const isHeading = line.toUpperCase() === line && 
+                       line.trim().length > 0 && 
+                       line.trim().length < 100 &&
+                       !line.includes(':') && 
+                       !line.includes('_') &&
+                       !line.includes('{{') &&
+                       /^[A-Z\s]+$/.test(line.trim());
 
-      return new Paragraph({
-        children: [
-          new TextRun({
+      // Detect signature lines
+      const isSignatureLine = line.includes('_____') || 
+                             line.includes('Signature:') || 
+                             line.includes('Date:') ||
+                             line.includes('Landlord:') || 
+                             line.includes('Tenant:');
+
+      // Detect section headers (lines ending with colon)
+      const isSectionHeader = line.trim().endsWith(':') && 
+                             line.trim().length < 60 &&
+                             !line.includes('{{');
+
+      if (isHeading) {
+        paragraphs.push(new Paragraph({
+          children: [new TextRun({
+            text: line.trim(),
+            bold: true,
+            size: 28 // 14pt
+          })],
+          heading: HeadingLevel.HEADING_1,
+          spacing: { before: 240, after: 120 }
+        }));
+      } else if (isSectionHeader) {
+        paragraphs.push(new Paragraph({
+          children: [new TextRun({
+            text: line.trim(),
+            bold: true,
+            size: 24 // 12pt
+          })],
+          spacing: { before: 200, after: 100 }
+        }));
+      } else if (isSignatureLine) {
+        paragraphs.push(new Paragraph({
+          children: [new TextRun({
             text: line,
-            bold: isBold,
-            underline: isSignatureLine ? {} : undefined,
-          }),
-        ],
-        spacing: {
-          after: 120, // Add some spacing between paragraphs
-        }
-      });
-    });
+            underline: {}
+          })],
+          spacing: { before: 400, after: 120 }
+        }));
+      } else {
+        // Regular paragraph with proper line spacing
+        paragraphs.push(new Paragraph({
+          children: [new TextRun({
+            text: line,
+            size: 22 // 11pt
+          })],
+          spacing: { after: 120 },
+          alignment: line.trim().startsWith('DATED') ? 'center' : undefined
+        }));
+      }
+    }
 
     const doc = new Document({
-      sections: [
-        {
-          properties: {},
-          children: paragraphs,
+      sections: [{
+        properties: {
+          page: {
+            margin: {
+              top: 1440,    // 1 inch
+              right: 1440,  // 1 inch
+              bottom: 1440, // 1 inch
+              left: 1440    // 1 inch
+            }
+          }
         },
-      ],
+        children: paragraphs
+      }]
     });
 
     return await Packer.toBuffer(doc);

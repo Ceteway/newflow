@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,8 @@ import {
   Plus,
   Bot,
   Edit3,
-  CheckCircle
+  CheckCircle,
+  AlertCircle
 } from "lucide-react";
 import mammoth from "mammoth";
 
@@ -41,6 +43,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
   const [showEditor, setShowEditor] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [isTemplateUploaded, setIsTemplateUploaded] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState('');
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -52,38 +55,55 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
       
       if (file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
         const arrayBuffer = await file.arrayBuffer();
-        const result = await mammoth.extractRawText({ arrayBuffer });
+        
+        // Extract text with better formatting preservation
+        const result = await mammoth.extractRawText({ 
+          arrayBuffer,
+          convertImage: mammoth.images.ignoreAll
+        });
+        
         text = result.value;
         
+        // Clean up the extracted text while preserving structure
+        text = text
+          .replace(/\r\n/g, '\n')  // Normalize line endings
+          .replace(/\n{3,}/g, '\n\n')  // Reduce excessive blank lines
+          .trim();
+
         if (result.messages.length > 0) {
-          console.log('Mammoth conversion messages:', result.messages);
+          console.log('Document conversion messages:', result.messages);
         }
       } else if (file.type.includes('text') || file.name.endsWith('.txt')) {
         text = await file.text();
       } else {
-        text = await file.text();
+        throw new Error('Unsupported file format. Please upload a .docx, .doc, or .txt file.');
       }
 
       setFormData(prev => ({ ...prev, content: text }));
       setIsTemplateUploaded(true);
+      setUploadedFileName(file.name);
       
       if (!formData.name) {
         const filename = file.name.replace(/\.[^/.]+$/, "");
         setFormData(prev => ({ ...prev, name: filename }));
       }
 
+      // Auto-extract variables from uploaded content
+      const variables = TemplateService.extractVariablesFromContent(text);
+      setExtractedVariables(variables);
+
       setShowEditor(true);
       setShowAIAssistant(true);
 
       toast({
-        title: "Template Uploaded Successfully",
-        description: `Template content extracted. AI Assistant is now ready to process your template.`,
+        title: "Word Document Uploaded Successfully",
+        description: `Template extracted from ${file.name}. Found ${variables.length} existing variables. AI Assistant is ready to help convert blank fields.`,
       });
     } catch (error) {
       console.error('Template upload error:', error);
       toast({
         title: "Upload Failed",
-        description: "Could not read the template file. Please try a different file format.",
+        description: error instanceof Error ? error.message : "Could not read the template file. Please try a different file format.",
         variant: "destructive"
       });
     } finally {
@@ -187,7 +207,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center space-x-2">
               <FileText className="w-5 h-5" />
-              <span>Create New Template</span>
+              <span>Upload & Edit Word Template</span>
             </CardTitle>
             <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="w-4 h-4" />
@@ -233,13 +253,15 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
             />
           </div>
 
-          {/* Template Upload */}
+          {/* Enhanced Template Upload */}
           <div className="space-y-2">
-            <Label>Upload Template Document *</Label>
+            <Label>Upload Word Document Template *</Label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
               <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-gray-600 mb-2">Upload your template document (.docx, .doc, .txt)</p>
-              <p className="text-xs text-gray-500 mb-2">AI will automatically detect and convert blank fields into variables</p>
+              <p className="text-gray-600 mb-2">Upload your Word document template (.docx, .doc)</p>
+              <p className="text-xs text-gray-500 mb-2">
+                AI will automatically detect blank fields (dots, dashes, underscores, brackets) and convert them to fillable variables
+              </p>
               <input
                 type="file"
                 accept=".doc,.docx,.txt"
@@ -249,14 +271,19 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
               />
               <Button variant="outline" asChild disabled={isExtracting}>
                 <label htmlFor="file-upload" className="cursor-pointer">
-                  {isExtracting ? "Processing Template..." : "Choose Template File"}
+                  {isExtracting ? "Processing Word Document..." : "Choose Word Document"}
                 </label>
               </Button>
               {isTemplateUploaded && (
-                <p className="text-sm text-green-600 mt-2 flex items-center justify-center">
-                  <CheckCircle className="w-4 h-4 mr-1" />
-                  Template uploaded successfully
-                </p>
+                <div className="mt-3 p-3 bg-green-50 rounded-lg">
+                  <p className="text-sm text-green-700 flex items-center justify-center">
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Successfully uploaded: {uploadedFileName}
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">
+                    Document structure preserved • {extractedVariables.length} variables detected
+                  </p>
+                </div>
               )}
             </div>
           </div>
@@ -265,9 +292,12 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
           {showAIAssistant && isTemplateUploaded && (
             <div className="border-t pt-6">
               <div className="mb-3">
-                <h3 className="font-semibold text-lg mb-1">AI Template Assistant</h3>
+                <h3 className="font-semibold text-lg mb-1 flex items-center">
+                  <Bot className="w-5 h-5 mr-2" />
+                  AI Template Variable Converter
+                </h3>
                 <p className="text-sm text-gray-600">
-                  AI will analyze your uploaded template and convert blank fields into variables
+                  Convert blank fields in your Word document into fillable variables
                 </p>
               </div>
               <AIVariableAssistant
@@ -277,10 +307,10 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
             </div>
           )}
 
-          {/* Content Editor */}
+          {/* Content Preview & Editor */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="content">Template Content *</Label>
+              <Label htmlFor="content">Template Content {isTemplateUploaded && "(Extracted from Word document)"}</Label>
               <div className="flex space-x-2">
                 {isTemplateUploaded && (
                   <Button
@@ -324,9 +354,12 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
               id="content"
               value={formData.content}
               onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-              placeholder="Upload a template document above or enter template content manually. AI will detect blank fields like dots (...), dashes (---), and brackets [text] automatically."
+              placeholder={isTemplateUploaded ? 
+                "Your Word document content appears here. Edit as needed and use AI to convert blank fields to variables." :
+                "Upload a Word document above or enter template content manually. AI will detect blank fields like dots (...), dashes (---), and brackets [text] automatically."
+              }
               rows={showEditor ? 12 : 8}
-              className={showEditor ? "font-mono text-sm" : ""}
+              className={`${showEditor ? "font-mono text-sm" : ""} ${isTemplateUploaded ? "bg-blue-50" : ""}`}
             />
             
             <div className="flex items-center justify-between text-xs text-gray-500">
@@ -335,33 +368,40 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
                 <span>{formData.content.length} characters</span>
               )}
             </div>
+            
             {!isTemplateUploaded && (
-              <p className="text-sm text-blue-600">
-                💡 Tip: Upload a template document above for automatic AI processing
-              </p>
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <p className="text-sm text-blue-700 flex items-center">
+                  <AlertCircle className="w-4 h-4 mr-2" />
+                  Upload a Word document to preserve formatting and enable AI variable conversion
+                </p>
+              </div>
             )}
           </div>
 
-          {/* Extracted Variables */}
+          {/* Enhanced Extracted Variables Display */}
           {extractedVariables.length > 0 && (
             <div className="space-y-2">
               <Label>Template Variables ({extractedVariables.length})</Label>
-              <div className="flex flex-wrap gap-2">
-                {extractedVariables.map((variable) => (
-                  <Badge key={variable} variant="secondary" className="flex items-center space-x-1">
-                    <span>{variable}</span>
-                    <button
-                      onClick={() => removeVariable(variable)}
-                      className="text-gray-500 hover:text-red-500 ml-1"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </Badge>
-                ))}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {extractedVariables.map((variable) => (
+                    <Badge key={variable} variant="secondary" className="flex items-center space-x-1">
+                      <span>{variable}</span>
+                      <button
+                        onClick={() => removeVariable(variable)}
+                        className="text-gray-500 hover:text-red-500 ml-1"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-600">
+                  These variables will be fillable when generating documents from this template. 
+                  Generated Word documents will maintain the original formatting.
+                </p>
               </div>
-              <p className="text-xs text-gray-500">
-                These variables will be available for editing when generating documents from this template.
-              </p>
             </div>
           )}
 
