@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +17,8 @@ import {
   Wand2,
   Plus,
   Bot,
-  Edit3
+  Edit3,
+  CheckCircle
 } from "lucide-react";
 import mammoth from "mammoth";
 
@@ -40,6 +40,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
   const [isCreating, setIsCreating] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [isTemplateUploaded, setIsTemplateUploaded] = useState(false);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -64,6 +65,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
       }
 
       setFormData(prev => ({ ...prev, content: text }));
+      setIsTemplateUploaded(true);
       
       if (!formData.name) {
         const filename = file.name.replace(/\.[^/.]+$/, "");
@@ -74,14 +76,14 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
       setShowAIAssistant(true);
 
       toast({
-        title: "File Uploaded Successfully",
-        description: `Document content extracted. Use AI Assistant to detect variables automatically.`,
+        title: "Template Uploaded Successfully",
+        description: `Template content extracted. AI Assistant is now ready to process your template.`,
       });
     } catch (error) {
-      console.error('File upload error:', error);
+      console.error('Template upload error:', error);
       toast({
         title: "Upload Failed",
-        description: "Could not read the file content. Please try a different file format.",
+        description: "Could not read the template file. Please try a different file format.",
         variant: "destructive"
       });
     } finally {
@@ -94,8 +96,8 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
     setExtractedVariables(variables);
     
     toast({
-      title: "AI Processing Complete",
-      description: `Applied ${variables.length} variables to the document`,
+      title: "Template Processing Complete",
+      description: `Applied ${variables.length} variables to your template`,
     });
   };
 
@@ -231,13 +233,13 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
             />
           </div>
 
-          {/* File Upload */}
+          {/* Template Upload */}
           <div className="space-y-2">
-            <Label>Upload Document</Label>
+            <Label>Upload Template Document *</Label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
               <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-gray-600 mb-2">Upload a Word document (.docx, .doc) or text file</p>
-              <p className="text-xs text-gray-500 mb-2">AI will automatically detect variables and placeholders like dots (...), dashes (---), brackets [text]</p>
+              <p className="text-gray-600 mb-2">Upload your template document (.docx, .doc, .txt)</p>
+              <p className="text-xs text-gray-500 mb-2">AI will automatically detect and convert blank fields into variables</p>
               <input
                 type="file"
                 accept=".doc,.docx,.txt"
@@ -247,15 +249,27 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
               />
               <Button variant="outline" asChild disabled={isExtracting}>
                 <label htmlFor="file-upload" className="cursor-pointer">
-                  {isExtracting ? "Processing..." : "Choose File"}
+                  {isExtracting ? "Processing Template..." : "Choose Template File"}
                 </label>
               </Button>
+              {isTemplateUploaded && (
+                <p className="text-sm text-green-600 mt-2 flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 mr-1" />
+                  Template uploaded successfully
+                </p>
+              )}
             </div>
           </div>
 
-          {/* AI Variable Assistant */}
-          {showAIAssistant && formData.content && (
+          {/* AI Template Assistant - Only show after upload */}
+          {showAIAssistant && isTemplateUploaded && (
             <div className="border-t pt-6">
+              <div className="mb-3">
+                <h3 className="font-semibold text-lg mb-1">AI Template Assistant</h3>
+                <p className="text-sm text-gray-600">
+                  AI will analyze your uploaded template and convert blank fields into variables
+                </p>
+              </div>
               <AIVariableAssistant
                 content={formData.content}
                 onContentUpdate={handleAIContentUpdate}
@@ -268,15 +282,16 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
             <div className="flex items-center justify-between">
               <Label htmlFor="content">Template Content *</Label>
               <div className="flex space-x-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowAIAssistant(!showAIAssistant)}
-                  disabled={!formData.content}
-                >
-                  <Bot className="w-4 h-4 mr-2" />
-                  {showAIAssistant ? "Hide AI Assistant" : "Show AI Assistant"}
-                </Button>
+                {isTemplateUploaded && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowAIAssistant(!showAIAssistant)}
+                  >
+                    <Bot className="w-4 h-4 mr-2" />
+                    {showAIAssistant ? "Hide AI Assistant" : "Show AI Assistant"}
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="outline"
@@ -309,7 +324,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
               id="content"
               value={formData.content}
               onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-              placeholder="Enter your template content or upload a document above. AI will detect placeholders like dots (...), dashes (---), and brackets [text] automatically."
+              placeholder="Upload a template document above or enter template content manually. AI will detect blank fields like dots (...), dashes (---), and brackets [text] automatically."
               rows={showEditor ? 12 : 8}
               className={showEditor ? "font-mono text-sm" : ""}
             />
@@ -320,6 +335,11 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
                 <span>{formData.content.length} characters</span>
               )}
             </div>
+            {!isTemplateUploaded && (
+              <p className="text-sm text-blue-600">
+                💡 Tip: Upload a template document above for automatic AI processing
+              </p>
+            )}
           </div>
 
           {/* Extracted Variables */}
@@ -355,7 +375,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
               disabled={isCreating || !formData.name || !formData.content}
               className="bg-blue-600 hover:bg-blue-700"
             >
-              {isCreating ? "Creating..." : "Create Template"}
+              {isCreating ? "Creating Template..." : "Create Template"}
             </Button>
           </div>
         </CardContent>

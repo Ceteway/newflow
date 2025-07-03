@@ -17,7 +17,8 @@ import {
   Edit3,
   Plus,
   Eye,
-  FileText
+  FileText,
+  Upload
 } from "lucide-react";
 
 interface AIVariableAssistantProps {
@@ -34,7 +35,16 @@ const AIVariableAssistant = ({ content, onContentUpdate, onClose }: AIVariableAs
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [editedContent, setEditedContent] = useState(content);
 
-  const handleAnalyzeDocument = async () => {
+  const handleAnalyzeTemplate = async () => {
+    if (!content || content.trim() === '') {
+      toast({
+        title: "No Template Content",
+        description: "Please upload a template document first before using AI analysis",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsAnalyzing(true);
     try {
       const result = await AIDocumentProcessor.analyzeDocument(content);
@@ -48,14 +58,14 @@ const AIVariableAssistant = ({ content, onContentUpdate, onClose }: AIVariableAs
       setPlaceholderMappings(mappings);
       
       toast({
-        title: "Universal Blank Detection Complete",
-        description: `Found ${result.suggestions.length} data suggestions and ${result.placeholders.length} blank fields to fill`,
+        title: "Template Analysis Complete",
+        description: `Found ${result.suggestions.length} data patterns and ${result.placeholders.length} template variables to convert`,
       });
     } catch (error) {
-      console.error('Analysis error:', error);
+      console.error('Template analysis error:', error);
       toast({
-        title: "Analysis Failed",
-        description: "Could not analyze document",
+        title: "Template Analysis Failed",
+        description: "Could not analyze the uploaded template",
         variant: "destructive"
       });
     } finally {
@@ -81,7 +91,7 @@ const AIVariableAssistant = ({ content, onContentUpdate, onClose }: AIVariableAs
     );
   };
 
-  const handleApplyChanges = () => {
+  const handleApplyTemplateChanges = () => {
     if (!analysis) return;
 
     let updatedContent = editedContent;
@@ -114,8 +124,8 @@ const AIVariableAssistant = ({ content, onContentUpdate, onClose }: AIVariableAs
     onContentUpdate(updatedContent, uniqueVariables);
     
     toast({
-      title: "Variables Applied Successfully",
-      description: `Applied ${uniqueVariables.length} variables to the document. All blank fields are now fillable variables.`,
+      title: "Template Variables Applied",
+      description: `Converted ${uniqueVariables.length} template fields into variables. Your template is now ready for document generation.`,
     });
   };
 
@@ -138,51 +148,71 @@ const AIVariableAssistant = ({ content, onContentUpdate, onClose }: AIVariableAs
     return icons[category as keyof typeof icons] || icons.other;
   };
 
+  if (!content || content.trim() === '') {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Bot className="w-5 h-5" />
+            <span>AI Template Assistant</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-center py-8">
+          <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600 mb-2">Upload a template document to get started</p>
+          <p className="text-sm text-gray-500">
+            AI will analyze your uploaded template and convert blank fields into variables
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Bot className="w-5 h-5" />
-            <span>Universal AI Blank Line Detector</span>
+            <span>AI Template Variable Converter</span>
           </CardTitle>
           <p className="text-sm text-gray-600">
-            Automatically detects and converts any blank lines marked with dots (...), dashes (---), 
-            underscores (___), or other placeholder patterns into fillable variables.
+            Automatically converts blank fields in your uploaded template (dots, dashes, underscores, brackets) 
+            into fillable variables for document generation.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex space-x-2">
             <Button 
-              onClick={handleAnalyzeDocument}
+              onClick={handleAnalyzeTemplate}
               disabled={isAnalyzing}
               className="flex-1"
             >
               <Wand2 className="w-4 h-4 mr-2" />
-              {isAnalyzing ? "Scanning Document..." : "Scan for Blank Fields"}
+              {isAnalyzing ? "Analyzing Template..." : "Analyze Template Variables"}
             </Button>
             {analysis && (
-              <Button onClick={handleApplyChanges} className="bg-green-600 hover:bg-green-700">
+              <Button onClick={handleApplyTemplateChanges} className="bg-green-600 hover:bg-green-700">
                 <CheckCircle className="w-4 h-4 mr-2" />
-                Apply All Changes
+                Apply to Template
               </Button>
             )}
           </div>
 
           {analysis && (
             <div className="space-y-6">
-              {/* Detected Blank Fields */}
+              {/* Template Variable Fields */}
               {analysis.placeholders.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="font-semibold flex items-center space-x-2">
                     <Edit3 className="w-4 h-4" />
-                    <span>Detected Blank Fields ({analysis.placeholders.length})</span>
+                    <span>Template Variables Found ({analysis.placeholders.length})</span>
                   </h3>
                   <div className="space-y-3 max-h-80 overflow-y-auto">
                     {placeholderMappings.map((mapping, index) => {
                       const placeholder = analysis.placeholders.find(p => p.text === mapping.original);
                       return (
-                        <div key={index} className="p-4 border rounded-lg bg-green-50">
+                        <div key={index} className="p-4 border rounded-lg bg-blue-50">
                           <div className="flex items-start space-x-3 mb-2">
                             <span className="text-lg">{getCategoryIcon(placeholder?.category || 'other')}</span>
                             <div className="flex-1">
@@ -194,13 +224,13 @@ const AIVariableAssistant = ({ content, onContentUpdate, onClose }: AIVariableAs
                                 <Badge variant="outline">
                                   {`{{${mapping.variable}}}`}
                                 </Badge>
-                                <Badge className="bg-green-100 text-green-800">
+                                <Badge className="bg-blue-100 text-blue-800">
                                   {placeholder?.category || 'field'}
                                 </Badge>
                               </div>
                               {placeholder?.contextPreview && (
                                 <p className="text-xs text-gray-600 bg-white p-2 rounded border italic">
-                                  Context: "{placeholder.contextPreview}"
+                                  Template context: "{placeholder.contextPreview}"
                                 </p>
                               )}
                             </div>
@@ -209,7 +239,7 @@ const AIVariableAssistant = ({ content, onContentUpdate, onClose }: AIVariableAs
                             <Input
                               value={mapping.variable}
                               onChange={(e) => handlePlaceholderVariableChange(mapping.original, e.target.value)}
-                              placeholder="Enter variable name"
+                              placeholder="Enter variable name for template"
                               className="text-sm"
                             />
                           </div>
@@ -220,13 +250,16 @@ const AIVariableAssistant = ({ content, onContentUpdate, onClose }: AIVariableAs
                 </div>
               )}
 
-              {/* AI Data Suggestions */}
+              {/* Data Pattern Suggestions for Templates */}
               {analysis.suggestions.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="font-semibold flex items-center space-x-2">
                     <AlertCircle className="w-4 h-4" />
-                    <span>AI Data Pattern Suggestions ({analysis.suggestions.length})</span>
+                    <span>Template Data Patterns ({analysis.suggestions.length})</span>
                   </h3>
+                  <p className="text-sm text-gray-600">
+                    These existing data values can be converted to template variables for reuse
+                  </p>
                   <div className="space-y-2 max-h-64 overflow-y-auto">
                     {analysis.suggestions.slice(0, 10).map((suggestion, index) => (
                       <div key={index} className="flex items-center space-x-3 p-3 border rounded-lg">
@@ -259,17 +292,18 @@ const AIVariableAssistant = ({ content, onContentUpdate, onClose }: AIVariableAs
                 </div>
               )}
 
-              {/* Content Preview */}
+              {/* Template Content Preview */}
               <div className="space-y-2">
-                <Label>Document Content (Editable)</Label>
+                <Label>Template Content (Editable)</Label>
                 <Textarea
                   value={editedContent}
                   onChange={(e) => setEditedContent(e.target.value)}
                   rows={10}
                   className="font-mono text-sm"
+                  placeholder="Your template content will appear here..."
                 />
                 <p className="text-xs text-gray-500">
-                  You can manually edit the content above before applying AI suggestions
+                  Edit your template content above before applying AI variable suggestions
                 </p>
               </div>
             </div>
@@ -279,8 +313,10 @@ const AIVariableAssistant = ({ content, onContentUpdate, onClose }: AIVariableAs
             <div className="text-center py-8">
               <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600">
-                No blank fields or data patterns detected in this document. 
-                The document may already be complete or use different placeholder formats.
+                This template appears to be complete with no blank fields detected.
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                The template may already have all variables defined or use a different placeholder format.
               </p>
             </div>
           )}
