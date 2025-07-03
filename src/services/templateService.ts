@@ -1,68 +1,26 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { DatabaseTemplate, DatabaseDocument, DocumentVariable, TemplateCategory, DocumentStatus } from "@/types/database";
+import { DatabaseTemplate, TemplateCategory, DocumentVariable } from "@/types/database";
+
+export interface CreateTemplateData {
+  name: string;
+  description?: string;
+  category: TemplateCategory;
+  content: string;
+  variables: string[];
+}
 
 export class TemplateService {
-  // Template Management
-  static async getAllTemplates(): Promise<DatabaseTemplate[]> {
-    const { data, error } = await supabase
-      .from('document_templates')
-      .select('*')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching templates:', error);
-      throw new Error('Failed to fetch templates');
-    }
-
-    return (data || []).map(template => ({
-      ...template,
-      variables: Array.isArray(template.variables) 
-        ? template.variables.filter((v): v is string => typeof v === 'string')
-        : []
-    }));
-  }
-
-  static async getTemplateById(id: string): Promise<DatabaseTemplate | null> {
-    const { data, error } = await supabase
-      .from('document_templates')
-      .select('*')
-      .eq('id', id)
-      .eq('is_active', true)
-      .single();
-
-    if (error) {
-      console.error('Error fetching template:', error);
-      return null;
-    }
-
-    return data ? {
-      ...data,
-      variables: Array.isArray(data.variables) 
-        ? data.variables.filter((v): v is string => typeof v === 'string')
-        : []
-    } : null;
-  }
-
-  static async createTemplate(template: {
-    name: string;
-    description?: string;
-    category: TemplateCategory;
-    content: string;
-    variables: string[];
-  }): Promise<DatabaseTemplate> {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('User must be authenticated');
-    }
-
-    const { data, error } = await supabase
+  static async createTemplate(data: CreateTemplateData): Promise<DatabaseTemplate> {
+    const { data: template, error } = await supabase
       .from('document_templates')
       .insert({
-        ...template,
-        created_by: user.id
+        name: data.name,
+        description: data.description,
+        category: data.category,
+        content: data.content,
+        variables: data.variables,
+        is_active: true
       })
       .select()
       .single();
@@ -72,18 +30,46 @@ export class TemplateService {
       throw new Error('Failed to create template');
     }
 
-    return {
-      ...data,
-      variables: Array.isArray(data.variables) 
-        ? data.variables.filter((v): v is string => typeof v === 'string')
-        : []
-    };
+    return template;
   }
 
-  static async updateTemplate(id: string, updates: Partial<DatabaseTemplate>): Promise<DatabaseTemplate> {
-    const { data, error } = await supabase
+  static async getAllTemplates(): Promise<DatabaseTemplate[]> {
+    const { data: templates, error } = await supabase
       .from('document_templates')
-      .update(updates)
+      .select('*')
+      .eq('is_active', true)
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching templates:', error);
+      throw new Error('Failed to fetch templates');
+    }
+
+    return templates || [];
+  }
+
+  static async getTemplateById(id: string): Promise<DatabaseTemplate | null> {
+    const { data: template, error } = await supabase
+      .from('document_templates')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching template:', error);
+      return null;
+    }
+
+    return template;
+  }
+
+  static async updateTemplate(id: string, updates: Partial<CreateTemplateData>): Promise<DatabaseTemplate> {
+    const { data: template, error } = await supabase
+      .from('document_templates')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', id)
       .select()
       .single();
@@ -93,12 +79,7 @@ export class TemplateService {
       throw new Error('Failed to update template');
     }
 
-    return {
-      ...data,
-      variables: Array.isArray(data.variables) 
-        ? data.variables.filter((v): v is string => typeof v === 'string')
-        : []
-    };
+    return template;
   }
 
   static async deleteTemplate(id: string): Promise<void> {
@@ -113,159 +94,57 @@ export class TemplateService {
     }
   }
 
-  // Document Generation
-  static async generateDocument(templateId: string, variables: DocumentVariable[], name?: string): Promise<DatabaseDocument> {
+  static async generateDocument(templateId: string, variables: DocumentVariable[]): Promise<any> {
     const template = await this.getTemplateById(templateId);
     if (!template) {
       throw new Error('Template not found');
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error('User must be authenticated');
-    }
-
-    // Populate template content with variables
-    let content = template.content;
-    const variablesData: Record<string, string> = {};
-
-    variables.forEach(variable => {
-      const placeholder = `{{${variable.key}}}`;
-      content = content.replace(new RegExp(placeholder, 'g'), variable.value);
-      variablesData[variable.key] = variable.value;
-    });
-
-    const documentName = name || `${template.name} - ${new Date().toLocaleDateString()}`;
-
-    const { data, error } = await supabase
+    // Create generated document record
+    const { data: document, error } = await supabase
       .from('generated_documents')
       .insert({
+        name: `${template.name}_${new Date().getTime()}`,
         template_id: templateId,
-        name: documentName,
-        content,
-        variables_data: variablesData,
-        created_by: user.id
+        content: template.content,
+        variables_data: variables,
+        status: 'completed'
       })
       .select()
       .single();
 
     if (error) {
-      console.error('Error generating document:', error);
+      console.error('Error creating document:', error);
       throw new Error('Failed to generate document');
     }
 
-    // Track template usage
-    await this.trackTemplateUsage(templateId);
-
-    return {
-      ...data,
-      variables_data: typeof data.variables_data === 'object' && data.variables_data !== null 
-        ? data.variables_data as Record<string, string>
-        : {}
-    };
-  }
-
-  static async getUserDocuments(): Promise<DatabaseDocument[]> {
-    const { data, error } = await supabase
-      .from('generated_documents')
-      .select(`
-        *,
-        document_templates(name, category)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching documents:', error);
-      throw new Error('Failed to fetch documents');
-    }
-
-    return (data || []).map(doc => ({
-      ...doc,
-      variables_data: typeof doc.variables_data === 'object' && doc.variables_data !== null 
-        ? doc.variables_data as Record<string, string>
-        : {}
-    }));
-  }
-
-  static async updateDocumentStatus(id: string, status: DocumentStatus): Promise<void> {
-    const { error } = await supabase
-      .from('generated_documents')
-      .update({ status })
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error updating document status:', error);
-      throw new Error('Failed to update document status');
-    }
-  }
-
-  static async deleteDocument(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('generated_documents')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error deleting document:', error);
-      throw new Error('Failed to delete document');
-    }
-  }
-
-  // Utility Methods
-  static async trackTemplateUsage(templateId: string): Promise<void> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    await supabase
-      .from('template_usage')
-      .insert({
-        template_id: templateId,
-        user_id: user.id
-      });
+    return document;
   }
 
   static extractVariablesFromContent(content: string): string[] {
-    const regex = /\{\{([^}]+)\}\}/g;
-    const variables = new Set<string>();
+    const variableRegex = /\{\{([^}]+)\}\}/g;
+    const variables: string[] = [];
     let match;
 
-    while ((match = regex.exec(content)) !== null) {
-      variables.add(match[1].trim());
+    while ((match = variableRegex.exec(content)) !== null) {
+      const variableName = match[1].trim();
+      if (!variables.includes(variableName)) {
+        variables.push(variableName);
+      }
     }
 
-    return Array.from(variables);
+    return variables;
   }
 
-  static async getTemplatesByCategory(category: TemplateCategory): Promise<DatabaseTemplate[]> {
-    const { data, error } = await supabase
-      .from('document_templates')
-      .select('*')
-      .eq('category', category)
-      .eq('is_active', true)
-      .order('name');
+  static fillTemplate(content: string, variables: DocumentVariable[]): string {
+    let filledContent = content;
+    
+    variables.forEach(variable => {
+      const placeholder = `{{${variable.key}}}`;
+      const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+      filledContent = filledContent.replace(regex, variable.value || '');
+    });
 
-    if (error) {
-      console.error('Error fetching templates by category:', error);
-      throw new Error('Failed to fetch templates');
-    }
-
-    return (data || []).map(template => ({
-      ...template,
-      variables: Array.isArray(template.variables) 
-        ? template.variables.filter((v): v is string => typeof v === 'string')
-        : []
-    }));
-  }
-
-  static downloadDocument(content: string, filename: string): void {
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
+    return filledContent;
   }
 }
