@@ -25,45 +25,71 @@ export interface CreateSystemTemplateData {
   content_type: string;
 }
 
-// Helper function to convert Uint8Array to base64
+// Helper function to convert Uint8Array to base64 safely
 function uint8ArrayToBase64(uint8Array: Uint8Array): string {
+  const chunkSize = 8192;
   let binary = '';
-  const len = uint8Array.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(uint8Array[i]);
+  
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    const chunk = uint8Array.subarray(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
   }
+  
   return btoa(binary);
 }
 
-// Helper function to convert base64 to Uint8Array
+// Helper function to convert base64 to Uint8Array safely
 function base64ToUint8Array(base64: string): Uint8Array {
-  const binary = atob(base64);
-  const len = binary.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binary.charCodeAt(i);
+  try {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  } catch (error) {
+    console.error('Error decoding base64:', error);
+    throw new Error('Invalid base64 data');
   }
-  return bytes;
 }
 
 export class SystemTemplateService {
   static async uploadSystemTemplate(data: CreateSystemTemplateData): Promise<SystemTemplate> {
     try {
+      console.log('Starting system template upload...', { 
+        name: data.name, 
+        fileName: data.file_name,
+        fileSize: data.file_data.length,
+        contentType: data.content_type
+      });
+
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        console.error('Error getting user:', userError);
+        throw new Error('Authentication required');
+      }
+
       // Convert Uint8Array to base64 string for storage
       const base64Data = uint8ArrayToBase64(data.file_data);
+      console.log('File converted to base64, length:', base64Data.length);
       
+      const insertData = {
+        name: data.name,
+        description: data.description || null,
+        category: data.category,
+        file_name: data.file_name,
+        file_data: base64Data,
+        content_type: data.content_type,
+        uploaded_by: user?.id || null,
+        is_active: true
+      };
+
+      console.log('Inserting template data:', { ...insertData, file_data: '[BASE64_DATA]' });
+
       const { data: template, error } = await supabase
         .from('system_templates')
-        .insert({
-          name: data.name,
-          description: data.description,
-          category: data.category,
-          file_name: data.file_name,
-          file_data: base64Data,
-          content_type: data.content_type,
-          uploaded_by: (await supabase.auth.getUser()).data.user?.id,
-          is_active: true
-        })
+        .insert(insertData)
         .select()
         .single();
 
@@ -72,9 +98,11 @@ export class SystemTemplateService {
         throw new Error(`Failed to upload system template: ${error.message}`);
       }
 
+      console.log('Template uploaded successfully:', template.id);
+
       return {
         ...template,
-        file_data: base64ToUint8Array(template.file_data)
+        file_data: data.file_data // Return original Uint8Array
       };
     } catch (error) {
       console.error('SystemTemplateService upload error:', error);
@@ -84,6 +112,8 @@ export class SystemTemplateService {
 
   static async getAllSystemTemplates(): Promise<SystemTemplate[]> {
     try {
+      console.log('Fetching all system templates...');
+      
       const { data: templates, error } = await supabase
         .from('system_templates')
         .select('*')
@@ -95,10 +125,23 @@ export class SystemTemplateService {
         throw new Error(`Failed to fetch system templates: ${error.message}`);
       }
 
-      return (templates || []).map(template => ({
-        ...template,
-        file_data: base64ToUint8Array(template.file_data)
-      }));
+      console.log(`Fetched ${templates?.length || 0} system templates`);
+
+      return (templates || []).map(template => {
+        try {
+          return {
+            ...template,
+            file_data: base64ToUint8Array(template.file_data)
+          };
+        } catch (decodeError) {
+          console.error(`Error decoding template ${template.id}:`, decodeError);
+          // Return empty Uint8Array if decode fails
+          return {
+            ...template,
+            file_data: new Uint8Array()
+          };
+        }
+      });
     } catch (error) {
       console.error('SystemTemplateService fetch error:', error);
       throw error;
@@ -107,6 +150,8 @@ export class SystemTemplateService {
 
   static async getSystemTemplateById(id: string): Promise<SystemTemplate | null> {
     try {
+      console.log('Fetching system template by ID:', id);
+      
       const { data: template, error } = await supabase
         .from('system_templates')
         .select('*')
@@ -119,10 +164,22 @@ export class SystemTemplateService {
         return null;
       }
 
-      return {
-        ...template,
-        file_data: base64ToUint8Array(template.file_data)
-      };
+      if (!template) {
+        return null;
+      }
+
+      try {
+        return {
+          ...template,
+          file_data: base64ToUint8Array(template.file_data)
+        };
+      } catch (decodeError) {
+        console.error(`Error decoding template ${id}:`, decodeError);
+        return {
+          ...template,
+          file_data: new Uint8Array()
+        };
+      }
     } catch (error) {
       console.error('SystemTemplateService get by ID error:', error);
       return null;
@@ -131,6 +188,8 @@ export class SystemTemplateService {
 
   static async deleteSystemTemplate(id: string): Promise<void> {
     try {
+      console.log('Deleting system template:', id);
+      
       const { error } = await supabase
         .from('system_templates')
         .update({ is_active: false })
@@ -140,6 +199,8 @@ export class SystemTemplateService {
         console.error('Error deleting system template:', error);
         throw new Error(`Failed to delete system template: ${error.message}`);
       }
+
+      console.log('Template deleted successfully:', id);
     } catch (error) {
       console.error('SystemTemplateService delete error:', error);
       throw error;
@@ -148,6 +209,8 @@ export class SystemTemplateService {
 
   static async extractTextFromTemplate(template: SystemTemplate): Promise<string> {
     try {
+      console.log('Extracting text from template:', template.name);
+      
       const blob = new Blob([template.file_data], { type: template.content_type });
       const file = new File([blob], template.file_name, { type: template.content_type });
       
@@ -156,10 +219,14 @@ export class SystemTemplateService {
       const arrayBuffer = await file.arrayBuffer();
       const result = await mammoth.extractRawText({ arrayBuffer });
       
-      return result.value
+      const extractedText = result.value
         .replace(/\r\n/g, '\n')
         .replace(/\n{3,}/g, '\n\n')
         .trim();
+
+      console.log('Text extracted successfully, length:', extractedText.length);
+      
+      return extractedText;
     } catch (error) {
       console.error('Error extracting text from template:', error);
       throw new Error('Failed to extract text from template');

@@ -17,7 +17,8 @@ import {
   Download,
   Plus,
   X,
-  CheckCircle
+  CheckCircle,
+  AlertCircle
 } from "lucide-react";
 
 interface SystemTemplatesManagerProps {
@@ -50,9 +51,12 @@ const SystemTemplatesManager = ({
   const loadSystemTemplates = async () => {
     try {
       setLoading(true);
+      console.log('Loading system templates...');
       const data = await SystemTemplateService.getAllSystemTemplates();
+      console.log('System templates loaded:', data.length);
       setTemplates(data);
     } catch (error) {
+      console.error('Failed to load system templates:', error);
       toast({
         title: "Error",
         description: "Failed to load system templates",
@@ -67,10 +71,21 @@ const SystemTemplatesManager = ({
     const file = event.target.files?.[0];
     if (!file) return;
 
+    console.log('File selected:', file.name, file.type, file.size);
+
     if (!file.name.endsWith('.docx') && !file.name.endsWith('.doc')) {
       toast({
         title: "Invalid File Type",
         description: "Please upload a Word document (.docx or .doc)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      toast({
+        title: "File Too Large",
+        description: "Please upload a file smaller than 10MB",
         variant: "destructive"
       });
       return;
@@ -84,7 +99,7 @@ const SystemTemplatesManager = ({
   };
 
   const handleUploadTemplate = async () => {
-    if (!uploadForm.file || !uploadForm.name) {
+    if (!uploadForm.file || !uploadForm.name.trim()) {
       toast({
         title: "Missing Information",
         description: "Please provide a name and select a file",
@@ -95,36 +110,58 @@ const SystemTemplatesManager = ({
 
     setUploading(true);
     try {
-      const fileData = new Uint8Array(await uploadForm.file.arrayBuffer());
+      console.log('Starting upload process...');
+      
+      // Convert file to Uint8Array
+      const arrayBuffer = await uploadForm.file.arrayBuffer();
+      const fileData = new Uint8Array(arrayBuffer);
+      
+      console.log('File processed:', {
+        name: uploadForm.name,
+        fileName: uploadForm.file.name,
+        size: fileData.length,
+        type: uploadForm.file.type
+      });
       
       const templateData: CreateSystemTemplateData = {
-        name: uploadForm.name,
-        description: uploadForm.description,
+        name: uploadForm.name.trim(),
+        description: uploadForm.description.trim() || undefined,
         category: uploadForm.category,
         file_name: uploadForm.file.name,
         file_data: fileData,
         content_type: uploadForm.file.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       };
 
-      await SystemTemplateService.uploadSystemTemplate(templateData);
+      const result = await SystemTemplateService.uploadSystemTemplate(templateData);
+      console.log('Upload successful:', result.id);
       
       toast({
-        title: "Template Uploaded",
-        description: "System template has been uploaded successfully",
+        title: "Upload Successful",
+        description: `Template "${uploadForm.name}" has been uploaded successfully`,
       });
 
+      // Reset form
       setUploadForm({
         name: '',
         description: '',
         category: 'agreements',
         file: null
       });
+      
+      // Reset file input
+      const fileInput = document.getElementById('system-file-upload') as HTMLInputElement;
+      if (fileInput) {
+        fileInput.value = '';
+      }
+      
       setShowUploadForm(false);
-      loadSystemTemplates();
+      await loadSystemTemplates(); // Reload templates
+      
     } catch (error) {
+      console.error('Upload failed:', error);
       toast({
         title: "Upload Failed",
-        description: "Could not upload the template",
+        description: error instanceof Error ? error.message : "Could not upload the template",
         variant: "destructive"
       });
     } finally {
@@ -144,6 +181,7 @@ const SystemTemplatesManager = ({
         description: "System template has been removed",
       });
     } catch (error) {
+      console.error('Delete failed:', error);
       toast({
         title: "Delete Failed",
         description: "Could not delete the template",
@@ -178,6 +216,7 @@ const SystemTemplatesManager = ({
             <CardTitle className="flex items-center space-x-2">
               <FolderOpen className="w-5 h-5" />
               <span>System Templates</span>
+              <Badge variant="secondary">{templates.length}</Badge>
             </CardTitle>
             <div className="flex items-center space-x-2">
               {!showSelectMode && (
@@ -202,7 +241,12 @@ const SystemTemplatesManager = ({
           {showUploadForm && !showSelectMode && (
             <Card className="border-2 border-dashed border-blue-300 bg-blue-50">
               <CardContent className="p-6 space-y-4">
-                <h3 className="font-semibold text-lg">Upload New System Template</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-lg">Upload New System Template</h3>
+                  <Button variant="ghost" size="sm" onClick={() => setShowUploadForm(false)}>
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -212,11 +256,16 @@ const SystemTemplatesManager = ({
                       value={uploadForm.name}
                       onChange={(e) => setUploadForm(prev => ({ ...prev, name: e.target.value }))}
                       placeholder="Enter template name"
+                      disabled={uploading}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="template-category">Category</Label>
-                    <Select value={uploadForm.category} onValueChange={(value: TemplateCategory) => setUploadForm(prev => ({ ...prev, category: value }))}>
+                    <Select 
+                      value={uploadForm.category} 
+                      onValueChange={(value: TemplateCategory) => setUploadForm(prev => ({ ...prev, category: value }))}
+                      disabled={uploading}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -238,6 +287,7 @@ const SystemTemplatesManager = ({
                     value={uploadForm.description}
                     onChange={(e) => setUploadForm(prev => ({ ...prev, description: e.target.value }))}
                     placeholder="Brief description of the template"
+                    disabled={uploading}
                   />
                 </div>
 
@@ -251,8 +301,9 @@ const SystemTemplatesManager = ({
                       onChange={handleFileUpload}
                       className="hidden"
                       id="system-file-upload"
+                      disabled={uploading}
                     />
-                    <Button variant="outline" asChild>
+                    <Button variant="outline" asChild disabled={uploading}>
                       <label htmlFor="system-file-upload" className="cursor-pointer">
                         Choose Word Document
                       </label>
@@ -261,7 +312,7 @@ const SystemTemplatesManager = ({
                       <div className="mt-2 p-2 bg-green-50 rounded">
                         <p className="text-sm text-green-700 flex items-center justify-center">
                           <CheckCircle className="w-4 h-4 mr-2" />
-                          Selected: {uploadForm.file.name}
+                          Selected: {uploadForm.file.name} ({(uploadForm.file.size / 1024 / 1024).toFixed(2)} MB)
                         </p>
                       </div>
                     )}
@@ -269,12 +320,16 @@ const SystemTemplatesManager = ({
                 </div>
 
                 <div className="flex justify-end space-x-2">
-                  <Button variant="outline" onClick={() => setShowUploadForm(false)}>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowUploadForm(false)}
+                    disabled={uploading}
+                  >
                     Cancel
                   </Button>
                   <Button 
                     onClick={handleUploadTemplate}
-                    disabled={uploading || !uploadForm.file || !uploadForm.name}
+                    disabled={uploading || !uploadForm.file || !uploadForm.name.trim()}
                     className="bg-blue-600 hover:bg-blue-700"
                   >
                     {uploading ? "Uploading..." : "Upload Template"}
@@ -365,6 +420,15 @@ const SystemTemplatesManager = ({
               <FolderOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600 mb-2">No system templates found</p>
               <p className="text-sm text-gray-500">Upload Word document templates to make them available to all users</p>
+              {!showUploadForm && !showSelectMode && (
+                <Button 
+                  onClick={() => setShowUploadForm(true)}
+                  className="mt-4 bg-blue-600 hover:bg-blue-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Upload First Template
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
