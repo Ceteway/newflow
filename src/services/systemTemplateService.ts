@@ -27,6 +27,9 @@ export interface CreateSystemTemplateData {
 
 export class SystemTemplateService {
   static async uploadSystemTemplate(data: CreateSystemTemplateData): Promise<SystemTemplate> {
+    // Convert Uint8Array to base64 string for storage
+    const base64Data = btoa(String.fromCharCode(...data.file_data));
+    
     const { data: template, error } = await supabase
       .from('system_templates')
       .insert({
@@ -34,7 +37,7 @@ export class SystemTemplateService {
         description: data.description,
         category: data.category,
         file_name: data.file_name,
-        file_data: Array.from(data.file_data),
+        file_data: base64Data,
         content_type: data.content_type,
         uploaded_by: (await supabase.auth.getUser()).data.user?.id,
         is_active: true
@@ -49,7 +52,7 @@ export class SystemTemplateService {
 
     return {
       ...template,
-      file_data: new Uint8Array(template.file_data)
+      file_data: new Uint8Array(atob(template.file_data).split('').map(char => char.charCodeAt(0)))
     };
   }
 
@@ -67,7 +70,7 @@ export class SystemTemplateService {
 
     return (templates || []).map(template => ({
       ...template,
-      file_data: new Uint8Array(template.file_data)
+      file_data: new Uint8Array(atob(template.file_data).split('').map(char => char.charCodeAt(0)))
     }));
   }
 
@@ -86,7 +89,7 @@ export class SystemTemplateService {
 
     return {
       ...template,
-      file_data: new Uint8Array(template.file_data)
+      file_data: new Uint8Array(atob(template.file_data).split('').map(char => char.charCodeAt(0)))
     };
   }
 
