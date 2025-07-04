@@ -57,10 +57,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
         const arrayBuffer = await file.arrayBuffer();
         
         // Extract text with better formatting preservation
-        const result = await mammoth.extractRawText({ 
-          arrayBuffer,
-          convertImage: mammoth.images.ignoreAll
-        });
+        const result = await mammoth.extractRawText({ arrayBuffer });
         
         text = result.value;
         
