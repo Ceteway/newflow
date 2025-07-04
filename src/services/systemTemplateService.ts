@@ -25,11 +25,32 @@ export interface CreateSystemTemplateData {
   content_type: string;
 }
 
+// Helper function to convert Uint8Array to base64
+function uint8ArrayToBase64(uint8Array: Uint8Array): string {
+  let binary = '';
+  const len = uint8Array.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(uint8Array[i]);
+  }
+  return btoa(binary);
+}
+
+// Helper function to convert base64 to Uint8Array
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
 export class SystemTemplateService {
   static async uploadSystemTemplate(data: CreateSystemTemplateData): Promise<SystemTemplate> {
     try {
       // Convert Uint8Array to base64 string for storage
-      const base64Data = btoa(String.fromCharCode(...data.file_data));
+      const base64Data = uint8ArrayToBase64(data.file_data);
       
       const { data: template, error } = await supabase
         .from('system_templates')
@@ -53,7 +74,7 @@ export class SystemTemplateService {
 
       return {
         ...template,
-        file_data: new Uint8Array(atob(template.file_data).split('').map(char => char.charCodeAt(0)))
+        file_data: base64ToUint8Array(template.file_data)
       };
     } catch (error) {
       console.error('SystemTemplateService upload error:', error);
@@ -76,7 +97,7 @@ export class SystemTemplateService {
 
       return (templates || []).map(template => ({
         ...template,
-        file_data: new Uint8Array(atob(template.file_data).split('').map(char => char.charCodeAt(0)))
+        file_data: base64ToUint8Array(template.file_data)
       }));
     } catch (error) {
       console.error('SystemTemplateService fetch error:', error);
@@ -100,7 +121,7 @@ export class SystemTemplateService {
 
       return {
         ...template,
-        file_data: new Uint8Array(atob(template.file_data).split('').map(char => char.charCodeAt(0)))
+        file_data: base64ToUint8Array(template.file_data)
       };
     } catch (error) {
       console.error('SystemTemplateService get by ID error:', error);
