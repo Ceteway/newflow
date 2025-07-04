@@ -92,6 +92,48 @@ export type Database = {
           },
         ]
       }
+      system_templates: {
+        Row: {
+          category: Database["public"]["Enums"]["template_category"]
+          content_type: string
+          created_at: string
+          description: string | null
+          file_data: string
+          file_name: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          category?: Database["public"]["Enums"]["template_category"]
+          content_type?: string
+          created_at?: string
+          description?: string | null
+          file_data: string
+          file_name: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["template_category"]
+          content_type?: string
+          created_at?: string
+          description?: string | null
+          file_data?: string
+          file_name?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       template_usage: {
         Row: {
           created_at: string | null

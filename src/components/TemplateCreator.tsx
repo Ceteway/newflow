@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,8 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { TemplateService } from "@/services/templateService";
+import { SystemTemplateService, SystemTemplate } from "@/services/systemTemplateService";
 import { TemplateCategory } from "@/types/database";
 import AIVariableAssistant from "./AIVariableAssistant";
+import SystemTemplatesManager from "./SystemTemplatesManager";
 import { 
   FileText, 
   Upload, 
@@ -20,7 +21,8 @@ import {
   Bot,
   Edit3,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  FolderOpen
 } from "lucide-react";
 import mammoth from "mammoth";
 
@@ -44,27 +46,75 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [isTemplateUploaded, setIsTemplateUploaded] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState('');
+  const [showSystemTemplates, setShowSystemTemplates] = useState(false);
+  const [templateSource, setTemplateSource] = useState<'upload' | 'system' | null>(null);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    await processTemplateFile(file, file.name);
+  };
+
+  const handleSystemTemplateSelect = async (systemTemplate: SystemTemplate) => {
+    setShowSystemTemplates(false);
+    setTemplateSource('system');
+    
+    try {
+      setIsExtracting(true);
+      const text = await SystemTemplateService.extractTextFromTemplate(systemTemplate);
+      
+      setFormData(prev => ({ 
+        ...prev, 
+        content: text,
+        name: prev.name || systemTemplate.name,
+        description: prev.description || systemTemplate.description || '',
+        category: systemTemplate.category
+      }));
+      
+      setIsTemplateUploaded(true);
+      setUploadedFileName(systemTemplate.file_name);
+      
+      // Auto-extract variables from selected content
+      const variables = TemplateService.extractVariablesFromContent(text);
+      setExtractedVariables(variables);
+
+      setShowEditor(true);
+      setShowAIAssistant(true);
+
+      toast({
+        title: "System Template Selected",
+        description: `Template "${systemTemplate.name}" loaded successfully. Found ${variables.length} existing variables.`,
+      });
+    } catch (error) {
+      console.error('System template processing error:', error);
+      toast({
+        title: "Processing Failed",
+        description: "Could not process the selected system template",
+        variant: "destructive"
+      });
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  const processTemplateFile = async (file: File, fileName: string) => {
     setIsExtracting(true);
+    setTemplateSource('upload');
+    
     try {
       let text = '';
       
       if (file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
         const arrayBuffer = await file.arrayBuffer();
-        
-        // Extract text with better formatting preservation
         const result = await mammoth.extractRawText({ arrayBuffer });
         
         text = result.value;
         
         // Clean up the extracted text while preserving structure
         text = text
-          .replace(/\r\n/g, '\n')  // Normalize line endings
-          .replace(/\n{3,}/g, '\n\n')  // Reduce excessive blank lines
+          .replace(/\r\n/g, '\n')
+          .replace(/\n{3,}/g, '\n\n')
           .trim();
 
         if (result.messages.length > 0) {
@@ -78,10 +128,10 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
 
       setFormData(prev => ({ ...prev, content: text }));
       setIsTemplateUploaded(true);
-      setUploadedFileName(file.name);
+      setUploadedFileName(fileName);
       
       if (!formData.name) {
-        const filename = file.name.replace(/\.[^/.]+$/, "");
+        const filename = fileName.replace(/\.[^/.]+$/, "");
         setFormData(prev => ({ ...prev, name: filename }));
       }
 
@@ -93,8 +143,8 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
       setShowAIAssistant(true);
 
       toast({
-        title: "Word Document Uploaded Successfully",
-        description: `Template extracted from ${file.name}. Found ${variables.length} existing variables. AI Assistant is ready to help convert blank fields.`,
+        title: "Document Uploaded Successfully",
+        description: `Template extracted from ${fileName}. Found ${variables.length} existing variables. AI Assistant is ready to help convert blank fields.`,
       });
     } catch (error) {
       console.error('Template upload error:', error);
@@ -204,7 +254,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center space-x-2">
               <FileText className="w-5 h-5" />
-              <span>Upload & Edit Word Template</span>
+              <span>Create New Template</span>
             </CardTitle>
             <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="w-4 h-4" />
@@ -250,42 +300,69 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
             />
           </div>
 
-          {/* Enhanced Template Upload */}
-          <div className="space-y-2">
-            <Label>Upload Word Document Template *</Label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-              <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-gray-600 mb-2">Upload your Word document template (.docx, .doc)</p>
-              <p className="text-xs text-gray-500 mb-2">
-                AI will automatically detect blank fields (dots, dashes, underscores, brackets) and convert them to fillable variables
-              </p>
-              <input
-                type="file"
-                accept=".doc,.docx,.txt"
-                onChange={handleFileUpload}
-                className="hidden"
-                id="file-upload"
-              />
-              <Button variant="outline" asChild disabled={isExtracting}>
-                <label htmlFor="file-upload" className="cursor-pointer">
-                  {isExtracting ? "Processing Word Document..." : "Choose Word Document"}
-                </label>
-              </Button>
-              {isTemplateUploaded && (
-                <div className="mt-3 p-3 bg-green-50 rounded-lg">
-                  <p className="text-sm text-green-700 flex items-center justify-center">
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Successfully uploaded: {uploadedFileName}
-                  </p>
-                  <p className="text-xs text-green-600 mt-1">
-                    Document structure preserved • {extractedVariables.length} variables detected
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
+          {/* Template Source Selection */}
+          {!isTemplateUploaded && (
+            <div className="space-y-4">
+              <Label>Choose Template Source</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Upload New Document */}
+                <Card className="border-2 border-dashed border-gray-300 hover:border-blue-400 transition-colors">
+                  <CardContent className="p-6 text-center">
+                    <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <h3 className="font-semibold mb-2">Upload Word Document</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Upload a new Word document from your computer
+                    </p>
+                    <input
+                      type="file"
+                      accept=".doc,.docx,.txt"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      id="file-upload"
+                    />
+                    <Button variant="outline" asChild disabled={isExtracting}>
+                      <label htmlFor="file-upload" className="cursor-pointer">
+                        {isExtracting ? "Processing..." : "Choose File"}
+                      </label>
+                    </Button>
+                  </CardContent>
+                </Card>
 
-          {/* AI Template Assistant - Only show after upload */}
+                {/* Select from System Templates */}
+                <Card className="border-2 border-dashed border-blue-300 hover:border-blue-400 transition-colors">
+                  <CardContent className="p-6 text-center">
+                    <FolderOpen className="w-8 h-8 text-blue-500 mx-auto mb-2" />
+                    <h3 className="font-semibold mb-2">System Templates</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Choose from pre-uploaded system templates
+                    </p>
+                    <Button 
+                      onClick={() => setShowSystemTemplates(true)}
+                      className="bg-blue-600 hover:bg-blue-700"
+                      disabled={isExtracting}
+                    >
+                      Browse Templates
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {/* Template Upload Status */}
+          {isTemplateUploaded && (
+            <div className="p-3 bg-green-50 rounded-lg">
+              <p className="text-sm text-green-700 flex items-center">
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Template loaded: {uploadedFileName} ({templateSource === 'system' ? 'System Template' : 'Uploaded File'})
+              </p>
+              <p className="text-xs text-green-600 mt-1">
+                Document structure preserved • {extractedVariables.length} variables detected
+              </p>
+            </div>
+          )}
+
+          {/* AI Template Assistant - Only show after template is loaded */}
           {showAIAssistant && isTemplateUploaded && (
             <div className="border-t pt-6">
               <div className="mb-3">
@@ -294,7 +371,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
                   AI Template Variable Converter
                 </h3>
                 <p className="text-sm text-gray-600">
-                  Convert blank fields in your Word document into fillable variables
+                  Convert blank fields in your document into fillable variables
                 </p>
               </div>
               <AIVariableAssistant
@@ -307,7 +384,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
           {/* Content Preview & Editor */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="content">Template Content {isTemplateUploaded && "(Extracted from Word document)"}</Label>
+              <Label htmlFor="content">Template Content {isTemplateUploaded && "(Extracted from document)"}</Label>
               <div className="flex space-x-2">
                 {isTemplateUploaded && (
                   <Button
@@ -352,8 +429,8 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
               value={formData.content}
               onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
               placeholder={isTemplateUploaded ? 
-                "Your Word document content appears here. Edit as needed and use AI to convert blank fields to variables." :
-                "Upload a Word document above or enter template content manually. AI will detect blank fields like dots (...), dashes (---), and brackets [text] automatically."
+                "Your document content appears here. Edit as needed and use AI to convert blank fields to variables." :
+                "Select a template source above to get started, or enter template content manually."
               }
               rows={showEditor ? 12 : 8}
               className={`${showEditor ? "font-mono text-sm" : ""} ${isTemplateUploaded ? "bg-blue-50" : ""}`}
@@ -370,7 +447,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
               <div className="bg-blue-50 p-3 rounded-lg">
                 <p className="text-sm text-blue-700 flex items-center">
                   <AlertCircle className="w-4 h-4 mr-2" />
-                  Upload a Word document to preserve formatting and enable AI variable conversion
+                  Select a template source above to get started with AI-powered variable conversion
                 </p>
               </div>
             )}
@@ -396,7 +473,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
                 </div>
                 <p className="text-xs text-gray-600">
                   These variables will be fillable when generating documents from this template. 
-                  Generated Word documents will maintain the original formatting.
+                  Generated documents will maintain the original formatting.
                 </p>
               </div>
             </div>
@@ -417,6 +494,15 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
           </div>
         </CardContent>
       </Card>
+
+      {/* System Templates Modal */}
+      {showSystemTemplates && (
+        <SystemTemplatesManager
+          onSelectTemplate={handleSystemTemplateSelect}
+          showSelectMode={true}
+          onClose={() => setShowSystemTemplates(false)}
+        />
+      )}
     </div>
   );
 };
