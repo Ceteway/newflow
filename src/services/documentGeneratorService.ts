@@ -1,4 +1,3 @@
-
 import { DocumentVariable } from "@/types/database";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 
@@ -50,6 +49,8 @@ export class DocumentGeneratorService {
   }
 
   private static async generateWordDocument(content: string): Promise<Uint8Array> {
+    console.log('Generating Word document from content...');
+    
     const lines = content.split('\n');
     const paragraphs: Paragraph[] = [];
 
@@ -142,7 +143,15 @@ export class DocumentGeneratorService {
       }]
     });
 
-    return await Packer.toBuffer(doc);
+    try {
+      // Use the browser-compatible method instead of toBuffer
+      const buffer = await Packer.toBlob(doc);
+      const arrayBuffer = await buffer.arrayBuffer();
+      return new Uint8Array(arrayBuffer);
+    } catch (error) {
+      console.error('Error generating Word document:', error);
+      throw new Error('Failed to generate Word document');
+    }
   }
 
   private static convertToHtml(content: string): string {
@@ -161,6 +170,8 @@ export class DocumentGeneratorService {
   }
 
   static downloadDocument(content: string | Uint8Array, filename: string, format: 'text' | 'html' | 'docx'): void {
+    console.log(`Downloading document: ${filename}.${format}`);
+    
     let mimeType: string;
     let fileExtension: string;
     let processedContent: string | Uint8Array = content;
@@ -183,14 +194,22 @@ export class DocumentGeneratorService {
         fileExtension = 'txt';
     }
 
-    const blob = new Blob([processedContent], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const link = globalThis.document.createElement('a');
-    link.href = url;
-    link.download = `${filename}.${fileExtension}`;
-    globalThis.document.body.appendChild(link);
-    link.click();
-    globalThis.document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    try {
+      const blob = new Blob([processedContent], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const link = globalThis.document.createElement('a');
+      link.href = url;
+      link.download = `${filename}.${fileExtension}`;
+      link.style.display = 'none';
+      globalThis.document.body.appendChild(link);
+      link.click();
+      globalThis.document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      console.log('Document download initiated successfully');
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      throw new Error('Failed to download document');
+    }
   }
 }

@@ -1,4 +1,3 @@
-
 import { DocumentGeneratorService } from "./documentGeneratorService";
 import { ROF5FormData } from "@/hooks/useROF5Form";
 import { DocumentVariable } from "@/types/database";
@@ -150,16 +149,26 @@ Form completed on: {{current_date}}
   }
 
   static downloadROF5Document(document: ROF5Document): void {
-    const blob = new Blob([document.content], { 
-      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
-    });
-    const url = URL.createObjectURL(blob);
-    const link = globalThis.document.createElement('a');
-    link.href = url;
-    link.download = document.name;
-    globalThis.document.body.appendChild(link);
-    link.click();
-    globalThis.document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    console.log('Downloading ROF5 document:', document.name);
+    
+    try {
+      const blob = new Blob([document.content], { 
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+      });
+      const url = URL.createObjectURL(blob);
+      const link = globalThis.document.createElement('a');
+      link.href = url;
+      link.download = document.name;
+      link.style.display = 'none';
+      globalThis.document.body.appendChild(link);
+      link.click();
+      globalThis.document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      console.log('ROF5 document download initiated successfully');
+    } catch (error) {
+      console.error('Error downloading ROF5 document:', error);
+      throw new Error('Failed to download ROF5 document');
+    }
   }
 }
