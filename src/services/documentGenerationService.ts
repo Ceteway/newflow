@@ -200,12 +200,12 @@ export class DocumentGenerationService {
       type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
     });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = globalThis.document.createElement('a'); // Fix: Use globalThis.document
     link.href = url;
     link.download = document.name;
-    document.body.appendChild(link);
+    globalThis.document.body.appendChild(link); // Fix: Use globalThis.document
     link.click();
-    document.body.removeChild(link);
+    globalThis.document.body.removeChild(link); // Fix: Use globalThis.document
     URL.revokeObjectURL(url);
   }
 

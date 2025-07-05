@@ -168,14 +168,7 @@ const ROF5Form = () => {
         nextAction: 'Generate Documents',
         priority: aiPriority,
         formData: { ...formData, expectedCompletionDate: aiDeadline },
-        generatedDocuments: generatedDocuments.map(doc => ({
-          id: doc.id,
-          name: doc.name,
-          type: doc.format,
-          status: 'generated',
-          createdAt: new Date().toISOString(),
-          templateUsed: doc.templateUsed
-        })),
+        generatedDocuments: generatedDocuments.map(doc => doc.name), // Fix: Only store document names as strings
         auditTrail: [{
           id: `audit-${Date.now()}`,
           action: 'ROF 5 Submitted with Document Generation',
