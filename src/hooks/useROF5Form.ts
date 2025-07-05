@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { useWorkflow, WorkflowInstruction } from "@/contexts/WorkflowContext";
@@ -166,6 +167,22 @@ export const useROF5Form = () => {
     setFormData(initialFormData);
   };
 
+  const validateFormData = (): boolean => {
+    const requiredFields = ['siteName', 'siteCode', 'siteLocation', 'landlordName'];
+    const missingFields = requiredFields.filter(field => !formData[field as keyof ROF5FormData]);
+    
+    if (missingFields.length > 0) {
+      toast({
+        title: "Validation Error",
+        description: `Please fill in: ${missingFields.join(', ')}`,
+        variant: "destructive"
+      });
+      return false;
+    }
+    
+    return true;
+  };
+
   return {
     formData,
     handleInputChange,
@@ -173,6 +190,7 @@ export const useROF5Form = () => {
     generateDocumentVariables,
     submitForm,
     resetForm,
+    validateFormData,
     addInstruction,
     generateDocuments,
     toast
