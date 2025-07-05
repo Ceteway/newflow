@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useROF5Form } from "@/hooks/useROF5Form";
@@ -510,6 +511,7 @@ const ROF5Form = () => {
             <FormActions 
               onSaveDraft={handleSaveDraft}
               isSubmitting={isSubmitting}
+              onDownloadROF5={handleDownloadROF5}
             />
           </form>
         </CardContent>

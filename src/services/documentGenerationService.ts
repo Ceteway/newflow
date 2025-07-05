@@ -200,18 +200,18 @@ export class DocumentGenerationService {
       type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
     });
     const url = URL.createObjectURL(blob);
-    const link = globalThis.document.createElement('a'); // Fix: Use globalThis.document
+    const link = globalThis.document.createElement('a');
     link.href = url;
     link.download = document.name;
-    globalThis.document.body.appendChild(link); // Fix: Use globalThis.document
+    globalThis.document.body.appendChild(link);
     link.click();
-    globalThis.document.body.removeChild(link); // Fix: Use globalThis.document
+    globalThis.document.body.removeChild(link);
     URL.revokeObjectURL(url);
   }
 
   static downloadAllDocuments(documents: GeneratedDocument[]): void {
-    documents.forEach(doc => {
-      setTimeout(() => this.downloadDocument(doc), 500); // Stagger downloads
+    documents.forEach((doc, index) => {
+      setTimeout(() => this.downloadDocument(doc), index * 500); // Stagger downloads
     });
   }
 }
