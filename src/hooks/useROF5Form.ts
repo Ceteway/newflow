@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { useWorkflow, WorkflowInstruction } from "@/contexts/WorkflowContext";
@@ -97,6 +96,10 @@ export const useROF5Form = () => {
     }));
   };
 
+  const loadFormData = (newFormData: ROF5FormData) => {
+    setFormData(newFormData);
+  };
+
   const generateDocumentVariables = (): DocumentVariable[] => {
     return [
       { key: 'current_date', value: new Date().toLocaleDateString() },
@@ -191,6 +194,7 @@ export const useROF5Form = () => {
     submitForm,
     resetForm,
     validateFormData,
+    loadFormData,
     addInstruction,
     generateDocuments,
     toast
