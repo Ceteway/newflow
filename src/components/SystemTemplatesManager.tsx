@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { SystemTemplateService, SystemTemplate, CreateSystemTemplateData } from "@/services/systemTemplateService";
 import { TemplateCategory } from "@/types/database";
+import SystemTemplateViewer from "./SystemTemplateViewer";
 import { 
   FolderOpen, 
   Upload, 
@@ -18,7 +18,7 @@ import {
   Plus,
   X,
   CheckCircle,
-  AlertCircle
+  Eye
 } from "lucide-react";
 
 interface SystemTemplatesManagerProps {
@@ -37,6 +37,7 @@ const SystemTemplatesManager = ({
   const [loading, setLoading] = useState(true);
   const [showUploadForm, setShowUploadForm] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<SystemTemplate | null>(null);
   const [uploadForm, setUploadForm] = useState({
     name: '',
     description: '',
@@ -190,10 +191,35 @@ const SystemTemplatesManager = ({
     }
   };
 
+  const handleViewTemplate = (template: SystemTemplate) => {
+    setSelectedTemplate(template);
+  };
+
+  const handleDownloadTemplate = (template: SystemTemplate) => {
+    try {
+      SystemTemplateService.downloadTemplate(template);
+      toast({
+        title: "Download Started",
+        description: `Downloading ${template.file_name}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: "Could not download the template",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleSelectTemplate = async (template: SystemTemplate) => {
     if (onSelectTemplate) {
       onSelectTemplate(template);
     }
+  };
+
+  const handleTemplateUpdated = () => {
+    loadSystemTemplates();
+    setSelectedTemplate(null);
   };
 
   const getCategoryDisplayName = (category: string) => {
@@ -237,7 +263,7 @@ const SystemTemplatesManager = ({
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Upload Form */}
+          {/* Upload Form - keep existing code */}
           {showUploadForm && !showSelectMode && (
             <Card className="border-2 border-dashed border-blue-300 bg-blue-50">
               <CardContent className="p-6 space-y-4">
@@ -370,7 +396,7 @@ const SystemTemplatesManager = ({
                     </Badge>
                   </div>
 
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-1">
                     {showSelectMode ? (
                       <Button
                         size="sm"
@@ -378,36 +404,34 @@ const SystemTemplatesManager = ({
                         className="flex-1 bg-blue-600 hover:bg-blue-700"
                       >
                         <FileText className="w-4 h-4 mr-1" />
-                        Select Template
+                        Select
                       </Button>
                     ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => {
-                          const blob = new Blob([template.file_data], { type: template.content_type });
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = template.file_name;
-                          a.click();
-                          URL.revokeObjectURL(url);
-                        }}
-                      >
-                        <Download className="w-4 h-4 mr-1" />
-                        Download
-                      </Button>
-                    )}
-                    {!showSelectMode && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDeleteTemplate(template.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleViewTemplate(template)}
+                          className="flex-1"
+                        >
+                          <Eye className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDownloadTemplate(template)}
+                        >
+                          <Download className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDeleteTemplate(template.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </>
                     )}
                   </div>
                 </CardContent>
@@ -433,6 +457,15 @@ const SystemTemplatesManager = ({
           )}
         </CardContent>
       </Card>
+
+      {/* Template Viewer Modal */}
+      {selectedTemplate && (
+        <SystemTemplateViewer
+          template={selectedTemplate}
+          onClose={() => setSelectedTemplate(null)}
+          onUpdate={handleTemplateUpdated}
+        />
+      )}
     </div>
   );
 };

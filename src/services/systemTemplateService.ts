@@ -186,6 +186,44 @@ export class SystemTemplateService {
     }
   }
 
+  static async updateSystemTemplate(id: string, updates: Partial<CreateSystemTemplateData>): Promise<SystemTemplate> {
+    try {
+      console.log('Updating system template:', id);
+      
+      const updateData: any = {};
+      
+      if (updates.name) updateData.name = updates.name;
+      if (updates.description !== undefined) updateData.description = updates.description;
+      if (updates.category) updateData.category = updates.category;
+      if (updates.file_name) updateData.file_name = updates.file_name;
+      if (updates.content_type) updateData.content_type = updates.content_type;
+      
+      if (updates.file_data) {
+        updateData.file_data = uint8ArrayToBase64(updates.file_data);
+      }
+
+      const { data: template, error } = await supabase
+        .from('system_templates')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating system template:', error);
+        throw new Error(`Failed to update system template: ${error.message}`);
+      }
+
+      return {
+        ...template,
+        file_data: updates.file_data || base64ToUint8Array(template.file_data)
+      };
+    } catch (error) {
+      console.error('SystemTemplateService update error:', error);
+      throw error;
+    }
+  }
+
   static async deleteSystemTemplate(id: string): Promise<void> {
     try {
       console.log('Deleting system template:', id);
@@ -214,7 +252,7 @@ export class SystemTemplateService {
       const blob = new Blob([template.file_data], { type: template.content_type });
       const file = new File([blob], template.file_name, { type: template.content_type });
       
-      // Use the same extraction logic as in TemplateCreator
+      // Use mammoth to extract text from Word documents
       const mammoth = await import('mammoth');
       const arrayBuffer = await file.arrayBuffer();
       const result = await mammoth.extractRawText({ arrayBuffer });
@@ -230,6 +268,28 @@ export class SystemTemplateService {
     } catch (error) {
       console.error('Error extracting text from template:', error);
       throw new Error('Failed to extract text from template');
+    }
+  }
+
+  static downloadTemplate(template: SystemTemplate): void {
+    try {
+      console.log('Downloading template:', template.name);
+      
+      const blob = new Blob([template.file_data], { type: template.content_type });
+      const url = URL.createObjectURL(blob);
+      const link = globalThis.document.createElement('a');
+      link.href = url;
+      link.download = template.file_name;
+      link.style.display = 'none';
+      globalThis.document.body.appendChild(link);
+      link.click();
+      globalThis.document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      console.log('Template download initiated successfully');
+    } catch (error) {
+      console.error('Error downloading template:', error);
+      throw new Error('Failed to download template');
     }
   }
 }
