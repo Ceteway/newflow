@@ -16,7 +16,9 @@ import {
   Save,
   X,
   Eye,
-  Loader2
+  Loader2,
+  AlertCircle,
+  RefreshCw
 } from "lucide-react";
 
 interface SystemTemplateViewerProps {
@@ -31,6 +33,7 @@ const SystemTemplateViewer = ({ template, onClose, onUpdate }: SystemTemplateVie
   const [loading, setLoading] = useState(false);
   const [extractedText, setExtractedText] = useState<string>("");
   const [extracting, setExtracting] = useState(false);
+  const [extractionError, setExtractionError] = useState<string>("");
   
   const [editForm, setEditForm] = useState({
     name: template.name,
@@ -46,18 +49,28 @@ const SystemTemplateViewer = ({ template, onClose, onUpdate }: SystemTemplateVie
   const extractTemplateText = async () => {
     try {
       setExtracting(true);
+      setExtractionError("");
+      console.log('Starting text extraction for template:', template.id);
+      
       const text = await SystemTemplateService.extractTextFromTemplate(template);
       setExtractedText(text);
+      console.log('Text extraction successful');
     } catch (error) {
       console.error('Failed to extract text:', error);
+      const errorMessage = error instanceof Error ? error.message : "Could not extract text from the template";
+      setExtractionError(errorMessage);
       toast({
         title: "Preview Error",
-        description: "Could not extract text from the template",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
       setExtracting(false);
     }
+  };
+
+  const handleRetryExtraction = () => {
+    extractTemplateText();
   };
 
   const handleDownload = () => {
@@ -68,9 +81,10 @@ const SystemTemplateViewer = ({ template, onClose, onUpdate }: SystemTemplateVie
         description: `Downloading ${template.file_name}`,
       });
     } catch (error) {
+      console.error('Download error:', error);
       toast({
         title: "Download Failed",
-        description: "Could not download the template",
+        description: error instanceof Error ? error.message : "Could not download the template",
         variant: "destructive"
       });
     }
@@ -311,13 +325,34 @@ const SystemTemplateViewer = ({ template, onClose, onUpdate }: SystemTemplateVie
               )}
 
               <div>
-                <Label className="text-sm font-medium text-gray-500 mb-2 block">Template Preview</Label>
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-sm font-medium text-gray-500">Template Preview</Label>
+                  {extractionError && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRetryExtraction}
+                      disabled={extracting}
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Retry
+                    </Button>
+                  )}
+                </div>
                 <Card className="bg-gray-50">
                   <CardContent className="p-4">
                     {extracting ? (
                       <div className="flex items-center justify-center py-8">
                         <Loader2 className="w-6 h-6 animate-spin mr-2" />
                         <span>Extracting text from template...</span>
+                      </div>
+                    ) : extractionError ? (
+                      <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+                        <AlertCircle className="w-6 h-6 mb-2 text-red-500" />
+                        <span className="text-red-600 mb-2">{extractionError}</span>
+                        <p className="text-sm text-gray-500 text-center">
+                          You can still download the template to view its contents manually
+                        </p>
                       </div>
                     ) : extractedText ? (
                       <pre className="whitespace-pre-wrap text-sm text-gray-700 max-h-96 overflow-y-auto">
@@ -326,7 +361,7 @@ const SystemTemplateViewer = ({ template, onClose, onUpdate }: SystemTemplateVie
                     ) : (
                       <div className="flex items-center justify-center py-8 text-gray-500">
                         <Eye className="w-6 h-6 mr-2" />
-                        <span>Could not extract text from template</span>
+                        <span>No preview available</span>
                       </div>
                     )}
                   </CardContent>

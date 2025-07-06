@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { TemplateCategory } from "@/types/database";
 
@@ -247,15 +248,30 @@ export class SystemTemplateService {
 
   static async extractTextFromTemplate(template: SystemTemplate): Promise<string> {
     try {
-      console.log('Extracting text from template:', template.name);
+      console.log('Extracting text from template:', template.name, 'Size:', template.file_data.length);
       
-      const blob = new Blob([template.file_data], { type: template.content_type });
-      const file = new File([blob], template.file_name, { type: template.content_type });
+      if (!template.file_data || template.file_data.length === 0) {
+        throw new Error('No file data available');
+      }
+
+      // Create ArrayBuffer from Uint8Array for mammoth
+      const arrayBuffer = template.file_data.buffer.slice(
+        template.file_data.byteOffset,
+        template.file_data.byteOffset + template.file_data.byteLength
+      );
       
-      // Use mammoth to extract text from Word documents
+      console.log('ArrayBuffer created, size:', arrayBuffer.byteLength);
+      
+      // Dynamically import mammoth to ensure it loads properly
       const mammoth = await import('mammoth');
-      const arrayBuffer = await file.arrayBuffer();
+      console.log('Mammoth imported successfully');
+      
       const result = await mammoth.extractRawText({ arrayBuffer });
+      console.log('Raw text extraction result:', result.messages);
+      
+      if (!result.value) {
+        throw new Error('No text content extracted from document');
+      }
       
       const extractedText = result.value
         .replace(/\r\n/g, '\n')
@@ -264,9 +280,25 @@ export class SystemTemplateService {
 
       console.log('Text extracted successfully, length:', extractedText.length);
       
+      if (extractedText.length === 0) {
+        throw new Error('Document appears to be empty or contains no readable text');
+      }
+      
       return extractedText;
     } catch (error) {
       console.error('Error extracting text from template:', error);
+      
+      // Provide more specific error messages
+      if (error instanceof Error) {
+        if (error.message.includes('zip')) {
+          throw new Error('Document may be corrupted or not a valid Word document');
+        } else if (error.message.includes('mammoth')) {
+          throw new Error('Unable to process Word document format');
+        } else {
+          throw new Error(`Text extraction failed: ${error.message}`);
+        }
+      }
+      
       throw new Error('Failed to extract text from template');
     }
   }
@@ -275,15 +307,19 @@ export class SystemTemplateService {
     try {
       console.log('Downloading template:', template.name);
       
+      if (!template.file_data || template.file_data.length === 0) {
+        throw new Error('No file data available for download');
+      }
+      
       const blob = new Blob([template.file_data], { type: template.content_type });
       const url = URL.createObjectURL(blob);
-      const link = globalThis.document.createElement('a');
+      const link = document.createElement('a');
       link.href = url;
       link.download = template.file_name;
       link.style.display = 'none';
-      globalThis.document.body.appendChild(link);
+      document.body.appendChild(link);
       link.click();
-      globalThis.document.body.removeChild(link);
+      document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
       console.log('Template download initiated successfully');
