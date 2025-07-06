@@ -25,7 +25,7 @@ export interface CreateSystemTemplateData {
   content_type: string;
 }
 
-// Helper function to convert Uint8Array to base64 safely
+// Helper function to convert Uint8Array to base64 for database storage
 function uint8ArrayToBase64(uint8Array: Uint8Array): string {
   const chunkSize = 8192;
   let binary = '';
@@ -38,9 +38,14 @@ function uint8ArrayToBase64(uint8Array: Uint8Array): string {
   return btoa(binary);
 }
 
-// Helper function to convert base64 to Uint8Array safely
+// Helper function to convert base64 to Uint8Array
 function base64ToUint8Array(base64: string): Uint8Array {
   try {
+    if (!base64 || base64.trim() === '') {
+      console.warn('Empty base64 data provided');
+      return new Uint8Array();
+    }
+    
     const binary = atob(base64);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {
@@ -49,7 +54,7 @@ function base64ToUint8Array(base64: string): Uint8Array {
     return bytes;
   } catch (error) {
     console.error('Error decoding base64:', error);
-    throw new Error('Invalid base64 data');
+    return new Uint8Array();
   }
 }
 
@@ -70,6 +75,10 @@ export class SystemTemplateService {
         throw new Error('Authentication required');
       }
 
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       // Convert Uint8Array to base64 string for storage
       const base64Data = uint8ArrayToBase64(data.file_data);
       console.log('File converted to base64, length:', base64Data.length);
@@ -81,7 +90,7 @@ export class SystemTemplateService {
         file_name: data.file_name,
         file_data: base64Data,
         content_type: data.content_type,
-        uploaded_by: user?.id || null,
+        uploaded_by: user.id,
         is_active: true
       };
 
@@ -129,13 +138,20 @@ export class SystemTemplateService {
 
       return (templates || []).map(template => {
         try {
+          // Handle both string and already converted data
+          let fileData: Uint8Array;
+          if (typeof template.file_data === 'string') {
+            fileData = base64ToUint8Array(template.file_data);
+          } else {
+            fileData = new Uint8Array(template.file_data || []);
+          }
+          
           return {
             ...template,
-            file_data: base64ToUint8Array(template.file_data)
+            file_data: fileData
           };
         } catch (decodeError) {
-          console.error(`Error decoding template ${template.id}:`, decodeError);
-          // Return empty Uint8Array if decode fails
+          console.error(`Error processing template ${template.id}:`, decodeError);
           return {
             ...template,
             file_data: new Uint8Array()
@@ -169,12 +185,19 @@ export class SystemTemplateService {
       }
 
       try {
+        let fileData: Uint8Array;
+        if (typeof template.file_data === 'string') {
+          fileData = base64ToUint8Array(template.file_data);
+        } else {
+          fileData = new Uint8Array(template.file_data || []);
+        }
+        
         return {
           ...template,
-          file_data: base64ToUint8Array(template.file_data)
+          file_data: fileData
         };
       } catch (decodeError) {
-        console.error(`Error decoding template ${id}:`, decodeError);
+        console.error(`Error processing template ${id}:`, decodeError);
         return {
           ...template,
           file_data: new Uint8Array()
@@ -214,9 +237,18 @@ export class SystemTemplateService {
         throw new Error(`Failed to update system template: ${error.message}`);
       }
 
+      let fileData: Uint8Array;
+      if (updates.file_data) {
+        fileData = updates.file_data;
+      } else if (typeof template.file_data === 'string') {
+        fileData = base64ToUint8Array(template.file_data);
+      } else {
+        fileData = new Uint8Array(template.file_data || []);
+      }
+
       return {
         ...template,
-        file_data: updates.file_data || base64ToUint8Array(template.file_data)
+        file_data: fileData
       };
     } catch (error) {
       console.error('SystemTemplateService update error:', error);
@@ -227,6 +259,12 @@ export class SystemTemplateService {
   static async deleteSystemTemplate(id: string): Promise<void> {
     try {
       console.log('Deleting system template:', id);
+      
+      // Check if user is authenticated
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('Authentication required for deletion');
+      }
       
       // Soft delete by setting is_active to false
       const { error } = await supabase
