@@ -5,6 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { SystemTemplateService, SystemTemplate, CreateSystemTemplateData } from "@/services/systemTemplateService";
 import { TemplateCategory } from "@/types/database";
@@ -18,7 +29,8 @@ import {
   Plus,
   X,
   CheckCircle,
-  Eye
+  Eye,
+  Loader2
 } from "lucide-react";
 
 interface SystemTemplatesManagerProps {
@@ -38,6 +50,7 @@ const SystemTemplatesManager = ({
   const [showUploadForm, setShowUploadForm] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<SystemTemplate | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [uploadForm, setUploadForm] = useState({
     name: '',
     description: '',
@@ -171,23 +184,30 @@ const SystemTemplatesManager = ({
   };
 
   const handleDeleteTemplate = async (templateId: string) => {
-    if (!confirm("Are you sure you want to delete this system template?")) return;
-
     try {
+      setDeletingId(templateId);
+      console.log('Deleting system template:', templateId);
+      
       await SystemTemplateService.deleteSystemTemplate(templateId);
+      
+      // Remove the template from the local state
       setTemplates(prev => prev.filter(t => t.id !== templateId));
       
       toast({
         title: "Template Deleted",
         description: "System template has been removed",
       });
+      
+      console.log('Template deleted successfully:', templateId);
     } catch (error) {
       console.error('Delete failed:', error);
       toast({
         title: "Delete Failed",
-        description: "Could not delete the template",
+        description: error instanceof Error ? error.message : "Could not delete the template",
         variant: "destructive"
       });
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -423,14 +443,39 @@ const SystemTemplatesManager = ({
                         >
                           <Download className="w-3 h-3" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDeleteTemplate(template.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              disabled={deletingId === template.id}
+                            >
+                              {deletingId === template.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3 h-3" />
+                              )}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete System Template</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete "{template.name}"? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteTemplate(template.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </>
                     )}
                   </div>

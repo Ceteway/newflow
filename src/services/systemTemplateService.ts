@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { TemplateCategory } from "@/types/database";
 
@@ -228,6 +227,7 @@ export class SystemTemplateService {
     try {
       console.log('Deleting system template:', id);
       
+      // Soft delete by setting is_active to false
       const { error } = await supabase
         .from('system_templates')
         .update({ is_active: false })
