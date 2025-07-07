@@ -46,14 +46,27 @@ function base64ToUint8Array(base64: string): Uint8Array {
       return new Uint8Array();
     }
     
-    const binary = atob(base64);
+    // Clean the base64 string - remove any whitespace and validate format
+    const cleanBase64 = base64.trim().replace(/\s/g, '');
+    
+    // Basic validation for base64 format
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(cleanBase64)) {
+      console.warn('Invalid base64 format detected');
+      return new Uint8Array();
+    }
+    
+    // Ensure proper padding
+    const paddedBase64 = cleanBase64 + '='.repeat((4 - cleanBase64.length % 4) % 4);
+    
+    const binary = atob(paddedBase64);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {
       bytes[i] = binary.charCodeAt(i);
     }
     return bytes;
   } catch (error) {
-    console.error('Error decoding base64:', error);
+    console.error('Error decoding base64:', error, 'Input length:', base64?.length || 0);
+    console.warn('Returning empty Uint8Array due to base64 decode error');
     return new Uint8Array();
   }
 }
@@ -123,6 +136,14 @@ export class SystemTemplateService {
     try {
       console.log('Fetching all system templates...');
       
+      // Check authentication first
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        console.warn('Authentication issue when fetching templates:', userError.message);
+        // Don't throw error, just log warning and continue with empty array
+        return [];
+      }
+      
       const { data: templates, error } = await supabase
         .from('system_templates')
         .select('*')
@@ -131,7 +152,9 @@ export class SystemTemplateService {
 
       if (error) {
         console.error('Error fetching system templates:', error);
-        throw new Error(`Failed to fetch system templates: ${error.message}`);
+        // Return empty array instead of throwing to prevent app crash
+        console.warn('Returning empty templates array due to fetch error');
+        return [];
       }
 
       console.log(`Fetched ${templates?.length || 0} system templates`);
@@ -152,6 +175,7 @@ export class SystemTemplateService {
           };
         } catch (decodeError) {
           console.error(`Error processing template ${template.id}:`, decodeError);
+          console.warn(`Template ${template.name} has corrupted file data, returning empty data`);
           return {
             ...template,
             file_data: new Uint8Array()
@@ -160,7 +184,9 @@ export class SystemTemplateService {
       });
     } catch (error) {
       console.error('SystemTemplateService fetch error:', error);
-      throw error;
+      // Return empty array instead of throwing to prevent app crash
+      console.warn('Returning empty templates array due to service error');
+      return [];
     }
   }
 

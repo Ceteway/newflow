@@ -34,8 +34,26 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   },
 });
 
-// Test connection on initialization
+// Test connection on initialization with better error handling
 supabase.auth.getSession().catch((error) => {
   console.warn('Supabase connection test failed:', error.message);
   console.warn('Please verify your Supabase project is active and accessible.');
+  
+  // If session is invalid, clear it to prevent further errors
+  if (error.message?.includes('session_not_found') || error.message?.includes('JWT')) {
+    console.warn('Clearing invalid session data...');
+    localStorage.removeItem('sb-' + SUPABASE_URL.replace('https://', '').replace('.supabase.co', '') + '-auth-token');
+    // Force a page reload to start fresh
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+  }
+});
+
+// Add global error handler for auth state changes
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_OUT' || (event === 'TOKEN_REFRESHED' && !session)) {
+    // Clear any stale data
+    console.log('Auth state changed, clearing potential stale data');
+  }
 });
