@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { SystemTemplateService, SystemTemplate, CreateSystemTemplateData } from "@/services/systemTemplateService";
 import { TemplateCategory } from "@/types/database";
 import SystemTemplateViewer from "./SystemTemplateViewer";
+import SystemTemplateCleanup from "./SystemTemplateCleanup";
 import { 
   FolderOpen, 
   Upload, 
@@ -266,6 +267,8 @@ const SystemTemplatesManager = ({
             </CardTitle>
             <div className="flex items-center space-x-2">
               {!showSelectMode && (
+                <>
+                  <SystemTemplateCleanup />
                 <Button 
                   onClick={() => setShowUploadForm(!showUploadForm)}
                   className="bg-blue-600 hover:bg-blue-700"
@@ -273,6 +276,7 @@ const SystemTemplatesManager = ({
                   <Plus className="w-4 h-4 mr-2" />
                   Upload Template
                 </Button>
+                </>
               )}
               {showSelectMode && onClose && (
                 <Button variant="ghost" size="sm" onClick={onClose}>
