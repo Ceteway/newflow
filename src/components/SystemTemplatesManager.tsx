@@ -20,7 +20,8 @@ import { useToast } from "@/hooks/use-toast";
 import { SystemTemplateService, SystemTemplate, CreateSystemTemplateData } from "@/services/systemTemplateService";
 import { TemplateCategory } from "@/types/database";
 import SystemTemplateViewer from "./SystemTemplateViewer";
-import SystemTemplateCleanup from "./TemplateCleanupManager";
+import SystemTemplateCleanup from "./SystemTemplateCleanup";
+import AdvancedTemplateImporter from "./AdvancedTemplateImporter";
 import { 
   FolderOpen, 
   Upload, 
@@ -51,6 +52,7 @@ const SystemTemplatesManager = ({
   const [showUploadForm, setShowUploadForm] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<SystemTemplate | null>(null);
+  const [showAdvancedImporter, setShowAdvancedImporter] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [uploadForm, setUploadForm] = useState({
     name: '',
@@ -268,11 +270,20 @@ const SystemTemplatesManager = ({
             <div className="flex items-center space-x-2">
               {!showSelectMode && (
                 <Button 
-                  onClick={() => setShowUploadForm(!showUploadForm)}
+                  onClick={() => setShowAdvancedImporter(true)}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Upload Template
+                  Advanced Import
+                </Button>
+              )}
+              {!showSelectMode && (
+                <Button 
+                  onClick={() => setShowUploadForm(!showUploadForm)}
+                  variant="outline"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Quick Upload
                 </Button>
               )}
               {showSelectMode && onClose && (
@@ -286,7 +297,7 @@ const SystemTemplatesManager = ({
         <CardContent className="space-y-6">
           {/* Upload Form - keep existing code */}
           {showUploadForm && !showSelectMode && (
-            <Card className="border-2 border-dashed border-blue-300 bg-blue-50">
+            <Card className="border-2 border-dashed border-blue-300 bg-blue-50 mb-6">
               <CardContent className="p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-lg">Upload New System Template</h3>
@@ -385,6 +396,34 @@ const SystemTemplatesManager = ({
               </CardContent>
             </Card>
           )}
+          
+          {/* System Template Management Tools */}
+          {!showSelectMode && (
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center space-x-2">
+                <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                  {templates.length} Templates
+                </Badge>
+                <Select 
+                  defaultValue="all" 
+                  onValueChange={(value) => console.log('Filter by:', value)}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    <SelectItem value="agreements">Agreements</SelectItem>
+                    <SelectItem value="forms">Forms</SelectItem>
+                    <SelectItem value="letters">Letters</SelectItem>
+                    <SelectItem value="invoices">Invoices</SelectItem>
+                    <SelectItem value="reports">Reports</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <SystemTemplateCleanup />
+            </div>
+          )}
 
           {/* Templates Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -440,7 +479,7 @@ const SystemTemplatesManager = ({
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleDownloadTemplate(template)}
+                          onClick={() => handleDownloadTemplate(template)} 
                           disabled={!template.file_data || template.file_data.length === 0}
                         >
                           <Download className="w-3 h-3" />
@@ -513,6 +552,17 @@ const SystemTemplatesManager = ({
           onUpdate={handleTemplateUpdated}
         />
       )}
+    
+    {/* Advanced Template Importer */}
+    {showAdvancedImporter && (
+      <AdvancedTemplateImporter
+        onClose={() => setShowAdvancedImporter(false)}
+        onTemplateImported={() => {
+          loadSystemTemplates();
+          setShowAdvancedImporter(false);
+        }}
+      />
+    )}
     </div>
   );
 };
