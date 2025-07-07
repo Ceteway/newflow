@@ -212,6 +212,57 @@ const SystemTemplatesManager = ({
     }
   };
 
+  const handleHardDeleteAll = async () => {
+    const confirmed = window.confirm(
+      "⚠️ CRITICAL WARNING: This will PERMANENTLY DELETE ALL system templates from the database.\n\n" +
+      "This action CANNOT be undone!\n\n" +
+      "Are you absolutely sure you want to proceed?"
+    );
+
+    if (!confirmed) return;
+
+    const doubleConfirm = window.confirm(
+      "FINAL CONFIRMATION: You are about to permanently delete ALL system templates.\n\n" +
+      "Type 'DELETE ALL' in the next prompt to confirm."
+    );
+
+    if (!doubleConfirm) return;
+
+    const userInput = prompt("Type 'DELETE ALL' to confirm permanent deletion:");
+    if (userInput !== 'DELETE ALL') {
+      toast({
+        title: "Deletion Cancelled",
+        description: "Confirmation text did not match. No templates were deleted.",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log('Starting hard deletion of all system templates...');
+      
+      const deletedCount = await SystemTemplateService.hardDeleteAllSystemTemplates();
+      
+      // Clear local state
+      setTemplates([]);
+      
+      toast({
+        title: "All Templates Deleted",
+        description: `Successfully deleted ${deletedCount} system templates permanently.`,
+      });
+      
+      console.log(`Hard deleted ${deletedCount} system templates`);
+    } catch (error) {
+      console.error('Hard delete all failed:', error);
+      toast({
+        title: "Deletion Failed",
+        description: error instanceof Error ? error.message : "Could not delete all templates",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
   const handleViewTemplate = (template: SystemTemplate) => {
     setSelectedTemplate(template);
   };
@@ -268,7 +319,15 @@ const SystemTemplatesManager = ({
             <div className="flex items-center space-x-2">
               {!showSelectMode && (
                 <>
-                  <SystemTemplateCleanup />
+                  <Button 
+                    variant="outline" 
+                    className="text-red-600 border-red-300 hover:bg-red-50"
+                    onClick={handleHardDeleteAll}
+                    disabled={loading || templates.length === 0}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete All Templates
+                  </Button>
                 <Button 
                   onClick={() => setShowUploadForm(!showUploadForm)}
                   className="bg-blue-600 hover:bg-blue-700"
