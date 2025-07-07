@@ -44,13 +44,13 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
   const [showEditor, setShowEditor] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [isTemplateUploaded, setIsTemplateUploaded] = useState(false);
-      
-      // Auto-extract variables from selected content
-      const variables = TemplateService.extractVariablesFromContent(text);
-      setExtractedVariables(variables);
+  const [uploadedFileName, setUploadedFileName] = useState('');
+  const [templateSource, setTemplateSource] = useState<'upload' | 'system'>('upload');
 
-      setShowEditor(true);
-      setShowAIAssistant(true);
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      processTemplateFile(file, file.name);
     }
   };
 
