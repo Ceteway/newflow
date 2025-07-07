@@ -310,6 +310,101 @@ export class SystemTemplateService {
     }
   }
 
+  static async deleteAllSystemTemplates(): Promise<number> {
+    try {
+      console.log('Starting deletion of all system templates...');
+      
+      // Check if user is authenticated
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('Authentication required for deletion');
+      }
+      
+      // First get all templates to count them
+      const { data: templates, error: fetchError } = await supabase
+        .from('system_templates')
+        .select('id, name')
+        .eq('is_active', true);
+
+      if (fetchError) {
+        console.error('Error fetching templates for deletion:', fetchError);
+        throw new Error(`Failed to fetch templates: ${fetchError.message}`);
+      }
+
+      const templateCount = templates?.length || 0;
+      console.log(`Found ${templateCount} templates to delete`);
+
+      if (templateCount === 0) {
+        console.log('No templates found to delete');
+        return 0;
+      }
+
+      // Delete all templates by setting is_active to false (soft delete)
+      const { error: deleteError } = await supabase
+        .from('system_templates')
+        .update({ is_active: false })
+        .eq('is_active', true);
+
+      if (deleteError) {
+        console.error('Error deleting all system templates:', deleteError);
+        throw new Error(`Failed to delete templates: ${deleteError.message}`);
+      }
+
+      console.log(`Successfully deleted ${templateCount} system templates`);
+      return templateCount;
+    } catch (error) {
+      console.error('SystemTemplateService deleteAll error:', error);
+      throw error;
+    }
+  }
+
+  static async hardDeleteAllSystemTemplates(): Promise<number> {
+    try {
+      console.log('Starting HARD deletion of all system templates...');
+      
+      // Check if user is authenticated
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('Authentication required for deletion');
+      }
+      
+      // First get all templates to count them (including inactive ones)
+      const { data: templates, error: fetchError } = await supabase
+        .from('system_templates')
+        .select('id, name');
+
+      if (fetchError) {
+        console.error('Error fetching templates for hard deletion:', fetchError);
+        throw new Error(`Failed to fetch templates: ${fetchError.message}`);
+      }
+
+      const templateCount = templates?.length || 0;
+      console.log(`Found ${templateCount} templates to hard delete`);
+
+      if (templateCount === 0) {
+        console.log('No templates found to delete');
+        return 0;
+      }
+
+      // Hard delete all templates (permanent removal)
+      const { error: deleteError } = await supabase
+        .from('system_templates')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all (using a condition that matches all)
+
+      if (deleteError) {
+        console.error('Error hard deleting all system templates:', deleteError);
+        throw new Error(`Failed to hard delete templates: ${deleteError.message}`);
+      }
+
+      console.log(`Successfully hard deleted ${templateCount} system templates`);
+      return templateCount;
+    } catch (error) {
+      console.error('SystemTemplateService hardDeleteAll error:', error);
+      throw error;
+    }
+  }
+
   static async extractTextFromTemplate(template: SystemTemplate): Promise<string> {
     try {
       console.log('Extracting text from template:', template.name, 'Size:', template.file_data.length);
