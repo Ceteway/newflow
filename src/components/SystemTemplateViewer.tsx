@@ -90,16 +90,10 @@ const SystemTemplateViewer = ({ template, onClose, onUpdate }: SystemTemplateVie
   const handleDownload = () => {
     try {
       SystemTemplateService.downloadTemplate(template);
-      
-      // Only show toast if download appears successful
-      if (template.file_data && template.file_data.length > 0) {
-        toast({
-          title: "Download Started",
-          description: `Downloading ${template.file_name}`,
-        });
-      } else {
-        throw new Error('Template has no file data');
-      }
+      toast({
+        title: "Download Started",
+        description: `Downloading ${template.file_name}`,
+      });
     } catch (error) {
       console.error('Download error:', error);
       toast({
@@ -195,8 +189,8 @@ const SystemTemplateViewer = ({ template, onClose, onUpdate }: SystemTemplateVie
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleDownload}
-               disabled={!template.file_data || template.file_data.length === 0}
+                  onClick={handleDownload} 
+                  disabled={!template.file_data || template.file_data.length === 0}
               >
                 <Download className="w-4 h-4 mr-2" />
                 Download
@@ -349,17 +343,15 @@ const SystemTemplateViewer = ({ template, onClose, onUpdate }: SystemTemplateVie
                 <div className="flex items-center justify-between mb-2">
                   <Label className="text-sm font-medium text-gray-500">Template Preview</Label>
                   {extractionError && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleRetryExtraction}
-                        disabled={extracting}
-                      >
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Retry Preview
-                      </Button>
-                    </>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRetryExtraction}
+                      disabled={extracting}
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Retry
+                    </Button>
                   )}
                 </div>
                 <Card className="bg-gray-50">
@@ -372,7 +364,7 @@ const SystemTemplateViewer = ({ template, onClose, onUpdate }: SystemTemplateVie
                     ) : extractionError ? (
                       <div className="flex flex-col items-center justify-center py-8 text-gray-500">
                         <AlertCircle className="w-6 h-6 mb-2 text-red-500" />
-                        <span className="text-red-600 mb-2">Could not extract text preview</span>
+                        <span className="text-red-600 mb-2">{extractionError}</span>
                         <p className="text-sm text-gray-500 text-center">
                           You can still download the template to view its contents manually
                         </p>
@@ -380,12 +372,6 @@ const SystemTemplateViewer = ({ template, onClose, onUpdate }: SystemTemplateVie
                     ) : extractedText ? (
                       <pre className="whitespace-pre-wrap text-sm text-gray-700 max-h-96 overflow-y-auto">
                         {extractedText}
-                        {extractedText.includes('[Template:') && (
-                          <div className="mt-4 p-3 bg-blue-50 rounded-lg text-blue-700 text-xs">
-                            <p className="font-medium">Note: This is a limited preview.</p>
-                            <p>The actual template content will be available when you use this template to generate documents.</p>
-                          </div>
-                        )}
                       </pre>
                     ) : (
                       <div className="flex items-center justify-center py-8 text-gray-500">

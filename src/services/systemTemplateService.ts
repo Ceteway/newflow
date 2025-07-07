@@ -408,18 +408,20 @@ export class SystemTemplateService {
   static async extractTextFromTemplate(template: SystemTemplate): Promise<string> {
     try {
       console.log('Extracting text from template:', template.name, 'Size:', template.file_data.length);
-      
+
       if (!template.file_data || template.file_data.length === 0) {
         throw new Error('No file data available');
       }
-      
+
       try {
-        // Create a fresh copy of the Uint8Array to avoid issues with detached ArrayBuffers
-        const dataClone = new Uint8Array(template.file_data);
-        const arrayBuffer = dataClone.buffer;
-        
+        // Create ArrayBuffer from Uint8Array for mammoth
+        const arrayBuffer = template.file_data.buffer.slice(
+          template.file_data.byteOffset,
+          template.file_data.byteOffset + template.file_data.byteLength
+        );
+
         console.log('ArrayBuffer created, size:', arrayBuffer.byteLength);
-        
+
         // Dynamically import mammoth to ensure it loads properly
         const mammoth = await import('mammoth');
         console.log('Mammoth imported successfully');
@@ -461,7 +463,7 @@ export class SystemTemplateService {
   static downloadTemplate(template: SystemTemplate): void {
     try {
       console.log('Downloading template:', template.name);
-
+      
       if (!template.file_data || template.file_data.length === 0) {
         throw new Error('No file data available for download');
       }
@@ -469,7 +471,7 @@ export class SystemTemplateService {
       // Create a fresh copy of the Uint8Array to avoid issues with detached ArrayBuffers
       const dataClone = new Uint8Array(template.file_data);
       
-      // Create the blob with the proper content type
+      // Create the blob with the proper content type and the cloned data
       const blob = new Blob([dataClone], { 
         type: template.content_type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
       });

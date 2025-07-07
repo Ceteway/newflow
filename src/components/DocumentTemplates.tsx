@@ -20,6 +20,7 @@ import { DatabaseTemplate, TemplateCategory } from "@/types/database";
 import TemplateCreator from "./TemplateCreator";
 import TemplateStorage from "./TemplateStorage";
 import TemplateVariableEditor from "./TemplateVariableEditor";
+import SystemTemplatesManager from "./SystemTemplatesManager";
 
 const DocumentTemplates = () => {
   const { toast } = useToast();
@@ -108,9 +109,10 @@ const DocumentTemplates = () => {
   return (
     <div className="space-y-6">
       <Tabs defaultValue="library" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="library">Template Library</TabsTrigger>
           <TabsTrigger value="storage">My Templates</TabsTrigger>
+          <TabsTrigger value="system">System Templates</TabsTrigger>
         </TabsList>
         
         <TabsContent value="library" className="space-y-6">
@@ -328,6 +330,10 @@ const DocumentTemplates = () => {
 
         <TabsContent value="storage">
           <TemplateStorage />
+        </TabsContent>
+
+        <TabsContent value="system">
+          <SystemTemplatesManager />
         </TabsContent>
       </Tabs>
 

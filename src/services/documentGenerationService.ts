@@ -1,5 +1,6 @@
 
 import { DocumentGeneratorService } from "./documentGeneratorService";
+import { SystemTemplateService, SystemTemplate } from "./systemTemplateService";
 import { DocumentVariable } from "@/types/database";
 import { ROF5FormData } from "@/hooks/useROF5Form";
 import { DocumentGenerator } from "./documentGenerator";
@@ -35,37 +36,81 @@ export class DocumentGenerationService {
     
     try {
       // Get all system templates
-      console.log('Using built-in templates for document generation');
+      console.log('Fetching system templates for document generation...');
+      const systemTemplates = await SystemTemplateService.getAllSystemTemplates();
+      console.log(`Found ${systemTemplates.length} system templates`);
 
       // Generate agreement document
       if (options.includeAgreement) {
-        const templateId = this.getTemplateIdFromType(options.agreementType);
-        const agreementDoc = await this.generateDocumentFromBuiltIn(
-          templateId,
-          variables,
-          `${formData.siteCode}_${formData.siteName}_Agreement`
-        );
-        generatedDocuments.push(agreementDoc);
+        // Try to find a matching system template first
+        const agreementTemplate = this.findTemplateByCategory(systemTemplates, 'agreements', options.agreementType);
+        
+        if (agreementTemplate) {
+          // Use system template if available
+          const agreementDoc = await this.generateSingleDocument(
+            agreementTemplate,
+            variables,
+            `${formData.siteCode}_${formData.siteName}_Agreement`
+          );
+          generatedDocuments.push(agreementDoc);
+        } else {
+          // Fall back to built-in template
+          const templateId = this.getTemplateIdFromType(options.agreementType);
+          const agreementDoc = await this.generateDocumentFromBuiltIn(
+            templateId,
+            variables,
+            `${formData.siteCode}_${formData.siteName}_Agreement`
+          );
+          generatedDocuments.push(agreementDoc);
+        }
       }
 
       // Generate forwarding letter
       if (options.includeForwardingLetter) {
-        const letterDoc = await this.generateDocumentFromBuiltIn(
-          'rof6-template',
-          variables,
-          `${formData.siteCode}_${formData.siteName}_Forwarding_Letter`
-        );
-        generatedDocuments.push(letterDoc);
+        // Try to find a matching system template first
+        const letterTemplate = this.findTemplateByCategory(systemTemplates, 'letters');
+        
+        if (letterTemplate) {
+          // Use system template if available
+          const letterDoc = await this.generateSingleDocument(
+            letterTemplate,
+            variables,
+            `${formData.siteCode}_${formData.siteName}_Forwarding_Letter`
+          );
+          generatedDocuments.push(letterDoc);
+        } else {
+          // Fall back to built-in template
+          const letterDoc = await this.generateDocumentFromBuiltIn(
+            'rof6-template',
+            variables,
+            `${formData.siteCode}_${formData.siteName}_Forwarding_Letter`
+          );
+          generatedDocuments.push(letterDoc);
+        }
       }
 
       // Generate invoice
       if (options.includeInvoice) {
-        const invoiceDoc = await this.generateDocumentFromBuiltIn(
-          'fee-note',
-          variables,
-          `${formData.siteCode}_${formData.siteName}_Invoice`
-        );
-        generatedDocuments.push(invoiceDoc);
+        // Try to find a matching system template first
+        const invoiceTemplate = this.findTemplateByCategory(systemTemplates, 'invoices');
+        
+        if (invoiceTemplate) {
+          // Use system template if available
+          const invoiceDoc = await this.generateSingleDocument(
+            invoiceTemplate,
+            variables,
+            `${formData.siteCode}_${formData.siteName}_Invoice`
+          );
+          generatedDocuments.push(invoiceDoc);
+        } else {
+          // Fall back to built-in template
+          const invoiceDoc = await this.generateDocumentFromBuiltIn(
+            'fee-note',
+            variables,
+            `${formData.siteCode}_${formData.siteName}_Invoice`
+          );
+          generatedDocuments.push(invoiceDoc);
+        }
       }
 
       console.log(`Generated ${generatedDocuments.length} documents successfully`);
@@ -77,6 +122,37 @@ export class DocumentGenerationService {
     }
   }
 
+  private static async generateSingleDocument(
+    template: SystemTemplate,
+    variables: DocumentVariable[],
+    baseName: string
+  ): Promise<GeneratedDocument> {
+    console.log(`Generating document from system template: ${template.name}`);
+    
+    try {
+      // Extract text content from the template
+      const templateContent = await SystemTemplateService.extractTextFromTemplate(template);
+      
+      // Generate the document using the document generator service
+      const result = await DocumentGeneratorService.generateDocument(
+        templateContent,
+        variables,
+        { format: 'docx', includeFormatting: true }
+      );
+
+      return {
+        id: `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        name: `${baseName}.docx`,
+        content: result.content as Uint8Array,
+        format: 'docx',
+        templateUsed: template.name
+      };
+    } catch (error) {
+      console.error('Error generating document from system template:', error);
+      throw new Error(`Failed to generate document from template: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
   private static getTemplateIdFromType(agreementType?: string): string {
     if (!agreementType) return 'lease-agreement';
     
@@ -84,6 +160,24 @@ export class DocumentGenerationService {
     if (agreementType.toLowerCase().includes('wayleave')) return 'wayleave-agreement';
     
     return 'lease-agreement';
+  }
+
+  private static findTemplateByCategory(
+    templates: SystemTemplate[],
+    category: string,
+    specificType?: string
+  ): SystemTemplate | null {
+    // First try to find by specific type if provided
+    if (specificType) {
+      const specificTemplate = templates.find(t => 
+        t.category === category && 
+        t.name.toLowerCase().includes(specificType.toLowerCase())
+      );
+      if (specificTemplate) return specificTemplate;
+    }
+
+    // Fallback to first template in category
+    return templates.find(t => t.category === category) || null;
   }
 
   private static async generateDocumentFromBuiltIn(
