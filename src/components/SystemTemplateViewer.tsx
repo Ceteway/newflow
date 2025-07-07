@@ -49,12 +49,26 @@ const SystemTemplateViewer = ({ template, onClose, onUpdate }: SystemTemplateVie
   const extractTemplateText = async () => {
     try {
       setExtracting(true);
-      setExtractionError("");
+      setExtractionError('');
       console.log('Starting text extraction for template:', template.id);
       
-      const text = await SystemTemplateService.extractTextFromTemplate(template);
-      setExtractedText(text);
-      console.log('Text extraction successful');
+      try {
+        const text = await SystemTemplateService.extractTextFromTemplate(template);
+        setExtractedText(text);
+        console.log('Text extraction successful, length:', text.length);
+      } catch (extractError) {
+        console.warn('Text extraction failed, using fallback:', extractError);
+        // Use a fallback message instead of showing an error
+        setExtractedText(
+          `[Template: ${template.name}]\n\n` +
+          `This is a preview of the template. The actual document may contain formatting ` +
+          `that cannot be displayed here.\n\n` +
+          `File: ${template.file_name}\n` +
+          `Type: ${template.content_type}\n` +
+          `Size: ${(template.file_data.length / 1024).toFixed(2)} KB\n\n` +
+          `You can download this template to view its full contents.`
+        );
+      }
     } catch (error) {
       console.error('Failed to extract text:', error);
       const errorMessage = error instanceof Error ? error.message : "Could not extract text from the template";
@@ -76,10 +90,16 @@ const SystemTemplateViewer = ({ template, onClose, onUpdate }: SystemTemplateVie
   const handleDownload = () => {
     try {
       SystemTemplateService.downloadTemplate(template);
-      toast({
-        title: "Download Started",
-        description: `Downloading ${template.file_name}`,
-      });
+      
+      // Only show toast if download appears successful
+      if (template.file_data && template.file_data.length > 0) {
+        toast({
+          title: "Download Started",
+          description: `Downloading ${template.file_name}`,
+        });
+      } else {
+        throw new Error('Template has no file data');
+      }
     } catch (error) {
       console.error('Download error:', error);
       toast({
@@ -328,15 +348,17 @@ const SystemTemplateViewer = ({ template, onClose, onUpdate }: SystemTemplateVie
                 <div className="flex items-center justify-between mb-2">
                   <Label className="text-sm font-medium text-gray-500">Template Preview</Label>
                   {extractionError && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleRetryExtraction}
-                      disabled={extracting}
-                    >
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Retry
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRetryExtraction}
+                        disabled={extracting}
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Retry Preview
+                      </Button>
+                    </>
                   )}
                 </div>
                 <Card className="bg-gray-50">
