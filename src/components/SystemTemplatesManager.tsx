@@ -503,6 +503,7 @@ const SystemTemplatesManager = ({
                           size="sm"
                           variant="outline"
                           onClick={() => handleDownloadTemplate(template)}
+                         disabled={!template.file_data || template.file_data.length === 0}
                         >
                           <Download className="w-3 h-3" />
                         </Button>

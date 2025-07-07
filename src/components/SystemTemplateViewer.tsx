@@ -196,6 +196,7 @@ const SystemTemplateViewer = ({ template, onClose, onUpdate }: SystemTemplateVie
                 variant="outline"
                 size="sm"
                 onClick={handleDownload}
+               disabled={!template.file_data || template.file_data.length === 0}
               >
                 <Download className="w-4 h-4 mr-2" />
                 Download
