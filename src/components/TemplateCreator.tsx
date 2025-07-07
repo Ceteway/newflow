@@ -9,9 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { TemplateService } from "@/services/templateService";
 import { SystemTemplateService, SystemTemplate } from "@/services/systemTemplateService";
-import { TemplateCategory } from "@/types/database";
 import AIVariableAssistant from "./AIVariableAssistant";
-import SystemTemplatesManager from "./SystemTemplatesManager";
+import { TemplateCategory } from "@/types/database";
 import { 
   FileText, 
   Upload, 
@@ -45,35 +44,6 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
   const [showEditor, setShowEditor] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [isTemplateUploaded, setIsTemplateUploaded] = useState(false);
-  const [uploadedFileName, setUploadedFileName] = useState(''); 
-  const [showSystemTemplates, setShowSystemTemplates] = useState(false);
-  const [templateSource, setTemplateSource] = useState<'upload' | 'system' | null>(null);
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    await processTemplateFile(file, file.name);
-  };
-
-  const handleSystemTemplateSelect = async (systemTemplate: SystemTemplate) => {
-    setShowSystemTemplates(false);
-    setTemplateSource('system');
-    
-    try {
-      setIsExtracting(true);
-      const text = await SystemTemplateService.extractTextFromTemplate(systemTemplate);
-      
-      setFormData(prev => ({ 
-        ...prev, 
-        content: text,
-        name: prev.name || systemTemplate.name,
-        description: prev.description || systemTemplate.description || '',
-        category: systemTemplate.category
-      }));
-      
-      setIsTemplateUploaded(true);
-      setUploadedFileName(systemTemplate.file_name);
       
       // Auto-extract variables from selected content
       const variables = TemplateService.extractVariablesFromContent(text);
@@ -81,20 +51,6 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
 
       setShowEditor(true);
       setShowAIAssistant(true);
-
-      toast({
-        title: "System Template Selected",
-        description: `Template "${systemTemplate.name}" loaded successfully. Found ${variables.length} existing variables.`,
-      });
-    } catch (error) {
-      console.error('System template processing error:', error);
-      toast({
-        title: "Processing Failed",
-        description: "Could not process the selected system template",
-        variant: "destructive"
-      });
-    } finally {
-      setIsExtracting(false);
     }
   };
 
@@ -304,7 +260,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
           {!isTemplateUploaded && (
             <div className="space-y-4">
               <Label>Choose Template Source</Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 {/* Upload New Document */}
                 <Card className="border-2 border-dashed border-gray-300 hover:border-blue-400 transition-colors">
                   <CardContent className="p-6 text-center">
@@ -324,24 +280,6 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
                       <label htmlFor="file-upload" className="cursor-pointer">
                         {isExtracting ? "Processing..." : "Choose File"}
                       </label>
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                {/* Select from System Templates */}
-                <Card className="border-2 border-dashed border-blue-300 hover:border-blue-400 transition-colors">
-                  <CardContent className="p-6 text-center">
-                    <FolderOpen className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-                    <h3 className="font-semibold mb-2">System Templates</h3>
-                    <p className="text-sm text-gray-600 mb-4">
-                      Choose from pre-uploaded system templates
-                    </p>
-                    <Button 
-                      onClick={() => setShowSystemTemplates(true)}
-                      className="bg-blue-600 hover:bg-blue-700"
-                      disabled={isExtracting}
-                    >
-                      Browse Templates
                     </Button>
                   </CardContent>
                 </Card>
@@ -494,15 +432,6 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
           </div>
         </CardContent>
       </Card>
-
-      {/* System Templates Modal */}
-      {showSystemTemplates && (
-        <SystemTemplatesManager
-          onSelectTemplate={handleSystemTemplateSelect}
-          showSelectMode={true}
-          onClose={() => setShowSystemTemplates(false)}
-        />
-      )}
     </div>
   );
 };

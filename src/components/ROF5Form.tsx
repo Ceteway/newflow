@@ -8,12 +8,10 @@ import { ROF5DocumentService, ROF5Document } from "@/services/rof5DocumentServic
 import { DraftService, SavedDraft } from "@/services/draftService";
 import { AIService } from "@/services/aiService";
 import { DocumentGenerator } from "@/services/documentGenerator";
-import { SystemTemplate } from "@/services/systemTemplateService";
 import FormHeader from "@/components/ROF5/FormHeader";
 import FormSections from "@/components/ROF5/FormSections";
 import FormActions from "@/components/ROF5/FormActions";
 import AISuggestions from "@/components/AISuggestions";
-import SystemTemplatesManager from "@/components/SystemTemplatesManager";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -35,7 +33,7 @@ const ROF5Form = () => {
   const [aiEnabled, setAiEnabled] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<SystemTemplate | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [generatedDocuments, setGeneratedDocuments] = useState<GeneratedDocument[]>([]);
   const [documentOptions, setDocumentOptions] = useState<DocumentGenerationOptions>({
     includeAgreement: true,
@@ -146,17 +144,17 @@ const ROF5Form = () => {
     }
   };
 
-  const handleSelectTemplate = (template: SystemTemplate) => {
-    setSelectedTemplate(template);
+  const handleSelectTemplate = (templateName: string) => {
+    setSelectedTemplate(templateName);
     setDocumentOptions(prev => ({
-      ...prev,
-      agreementType: template.name.toLowerCase()
+      ...prev, 
+      agreementType: templateName.toLowerCase()
     }));
     setShowTemplateSelector(false);
     
     toast({
       title: "Template Selected",
-      description: `${template.name} will be used for document generation`,
+      description: `${templateName} will be used for document generation`,
     });
   };
 
@@ -456,7 +454,8 @@ const ROF5Form = () => {
                     <button
                       type="button"
                       onClick={() => setShowTemplateSelector(true)}
-                      className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                      className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                      disabled={true}
                     >
                       Select Template
                     </button>
@@ -464,7 +463,7 @@ const ROF5Form = () => {
                     {selectedTemplate && (
                       <div className="p-3 bg-green-100 rounded">
                         <p className="text-sm text-green-800">
-                          Template: <strong>{selectedTemplate.name}</strong>
+                          Template: <strong>{selectedTemplate}</strong>
                         </p>
                       </div>
                     )}
@@ -518,14 +517,7 @@ const ROF5Form = () => {
         </CardContent>
       </Card>
 
-      {/* Template Selector Modal */}
-      {showTemplateSelector && (
-        <SystemTemplatesManager
-          showSelectMode={true}
-          onSelectTemplate={handleSelectTemplate}
-          onClose={() => setShowTemplateSelector(false)}
-        />
-      )}
+      {/* Template selection is disabled */}
     </div>
   );
 };
