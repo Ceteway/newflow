@@ -468,12 +468,9 @@ export class SystemTemplateService {
         throw new Error('No file data available for download');
       }
       
-      // Create a proper ArrayBuffer from the Uint8Array to ensure compatibility
-      const arrayBuffer = template.file_data.buffer.slice(
-        template.file_data.byteOffset,
-        template.file_data.byteOffset + template.file_data.byteLength
-      );
-      const blob = new Blob([arrayBuffer], { type: template.content_type });
+      // Create a new Uint8Array copy to ensure we have a clean buffer
+      const dataClone = new Uint8Array(template.file_data);
+      const blob = new Blob([dataClone], { type: template.content_type });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
