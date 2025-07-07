@@ -21,6 +21,7 @@ import { SystemTemplateService, SystemTemplate, CreateSystemTemplateData } from 
 import { TemplateCategory } from "@/types/database";
 import SystemTemplateViewer from "./SystemTemplateViewer";
 import SystemTemplateCleanup from "./SystemTemplateCleanup";
+import TemplateVersionHistory from "./TemplateVersionHistory";
 import AdvancedTemplateImporter from "./AdvancedTemplateImporter";
 import { 
   FolderOpen, 
@@ -32,7 +33,8 @@ import {
   X,
   CheckCircle,
   Eye,
-  Loader2
+  Loader2,
+  History
 } from "lucide-react";
 
 interface SystemTemplatesManagerProps {
@@ -53,6 +55,8 @@ const SystemTemplatesManager = ({
   const [uploading, setUploading] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<SystemTemplate | null>(null);
   const [showAdvancedImporter, setShowAdvancedImporter] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [selectedTemplateForHistory, setSelectedTemplateForHistory] = useState<SystemTemplate | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [uploadForm, setUploadForm] = useState({
     name: '',
@@ -216,6 +220,11 @@ const SystemTemplatesManager = ({
 
   const handleViewTemplate = (template: SystemTemplate) => {
     setSelectedTemplate(template);
+  };
+
+  const handleViewVersionHistory = (template: SystemTemplate) => {
+    setSelectedTemplateForHistory(template);
+    setShowVersionHistory(true);
   };
 
   const handleDownloadTemplate = (template: SystemTemplate) => {
@@ -479,6 +488,14 @@ const SystemTemplatesManager = ({
                         <Button
                           size="sm"
                           variant="outline"
+                          onClick={() => handleViewVersionHistory(template)}
+                          className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                        >
+                          <History className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
                           onClick={() => handleDownloadTemplate(template)} 
                           disabled={!template.file_data || template.file_data.length === 0}
                         >
@@ -552,6 +569,18 @@ const SystemTemplatesManager = ({
           onUpdate={handleTemplateUpdated}
         />
       )}
+
+    {/* Template Version History */}
+    {showVersionHistory && selectedTemplateForHistory && (
+      <TemplateVersionHistory
+        template={selectedTemplateForHistory}
+        onClose={() => {
+          setShowVersionHistory(false);
+          setSelectedTemplateForHistory(null);
+          loadSystemTemplates(); // Refresh in case of version restore
+        }}
+      />
+    )}
     
     {/* Advanced Template Importer */}
     {showAdvancedImporter && (
