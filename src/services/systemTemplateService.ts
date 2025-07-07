@@ -408,57 +408,55 @@ export class SystemTemplateService {
   static async extractTextFromTemplate(template: SystemTemplate): Promise<string> {
     try {
       console.log('Extracting text from template:', template.name, 'Size:', template.file_data.length);
-      
+
       if (!template.file_data || template.file_data.length === 0) {
         throw new Error('No file data available');
       }
 
-      // Create ArrayBuffer from Uint8Array for mammoth
-      const arrayBuffer = template.file_data.buffer.slice(
-        template.file_data.byteOffset,
-        template.file_data.byteOffset + template.file_data.byteLength
-      );
-      
-      console.log('ArrayBuffer created, size:', arrayBuffer.byteLength);
-      
-      // Dynamically import mammoth to ensure it loads properly
-      const mammoth = await import('mammoth');
-      console.log('Mammoth imported successfully');
-      
-      const result = await mammoth.extractRawText({ arrayBuffer });
-      console.log('Raw text extraction result:', result.messages);
-      
-      if (!result.value) {
-        throw new Error('No text content extracted from document');
-      }
-      
-      const extractedText = result.value
-        .replace(/\r\n/g, '\n')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim();
+      try {
+        // Create ArrayBuffer from Uint8Array for mammoth
+        const arrayBuffer = template.file_data.buffer.slice(
+          template.file_data.byteOffset,
+          template.file_data.byteOffset + template.file_data.byteLength
+        );
+        
+        console.log('ArrayBuffer created, size:', arrayBuffer.byteLength);
+        
+        // Dynamically import mammoth to ensure it loads properly
+        const mammoth = await import('mammoth');
+        console.log('Mammoth imported successfully');
+        
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        console.log('Raw text extraction result:', result.messages);
+        
+        if (!result.value) {
+          throw new Error('No text content extracted from document');
+        }
+        
+        const extractedText = result.value
+          .replace(/\r\n/g, '\n')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
 
-      console.log('Text extracted successfully, length:', extractedText.length);
-      
-      if (extractedText.length === 0) {
-        throw new Error('Document appears to be empty or contains no readable text');
+        console.log('Text extracted successfully, length:', extractedText.length);
+        
+        if (extractedText.length === 0) {
+          throw new Error('Document appears to be empty or contains no readable text');
+        }
+        
+        return extractedText;
+      } catch (mammothError) {
+        console.warn('Mammoth extraction failed, falling back to placeholder text:', mammothError);
+        
+        // Return a placeholder text instead of failing completely
+        return `[Template: ${template.name}]\n\nThis document could not be previewed due to format limitations.\n\nFilename: ${template.file_name}\nType: ${template.content_type}\nSize: ${template.file_data.length} bytes\n\nYou can still download and use this template.`;
       }
-      
-      return extractedText;
     } catch (error) {
       console.error('Error extracting text from template:', error);
       
       // Provide more specific error messages
-      if (error instanceof Error) {
-        if (error.message.includes('zip')) {
-          throw new Error('Document may be corrupted or not a valid Word document');
-        } else if (error.message.includes('mammoth')) {
-          throw new Error('Unable to process Word document format');
-        } else {
-          throw new Error(`Text extraction failed: ${error.message}`);
-        }
-      }
-      
-      throw new Error('Failed to extract text from template');
+      // Return a fallback message instead of throwing an error
+      return `[Template: ${template.name}]\n\nThis document could not be previewed.\n\nFilename: ${template.file_name}\nType: ${template.content_type}\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}\n\nYou can still download and use this template.`;
     }
   }
 

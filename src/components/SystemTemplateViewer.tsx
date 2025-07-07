@@ -349,7 +349,7 @@ const SystemTemplateViewer = ({ template, onClose, onUpdate }: SystemTemplateVie
                     ) : extractionError ? (
                       <div className="flex flex-col items-center justify-center py-8 text-gray-500">
                         <AlertCircle className="w-6 h-6 mb-2 text-red-500" />
-                        <span className="text-red-600 mb-2">{extractionError}</span>
+                        <span className="text-red-600 mb-2">Could not extract text preview</span>
                         <p className="text-sm text-gray-500 text-center">
                           You can still download the template to view its contents manually
                         </p>
@@ -357,6 +357,12 @@ const SystemTemplateViewer = ({ template, onClose, onUpdate }: SystemTemplateVie
                     ) : extractedText ? (
                       <pre className="whitespace-pre-wrap text-sm text-gray-700 max-h-96 overflow-y-auto">
                         {extractedText}
+                        {extractedText.includes('[Template:') && (
+                          <div className="mt-4 p-3 bg-blue-50 rounded-lg text-blue-700 text-xs">
+                            <p className="font-medium">Note: This is a limited preview.</p>
+                            <p>The actual template content will be available when you use this template to generate documents.</p>
+                          </div>
+                        )}
                       </pre>
                     ) : (
                       <div className="flex items-center justify-center py-8 text-gray-500">
