@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
-import { Search, Plus, Edit, Trash2, FileText, Download, FileUp } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, FileText, Download } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import SystemTemplatesManager from './SystemTemplatesManager';
 import TemplateStorage from './TemplateStorage';
@@ -21,7 +21,7 @@ interface Template {
 
 const DocumentTemplates: React.FC = () => {
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('user');
   const [activeTab, setActiveTab] = useState('user');
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [showTemplateCreator, setShowTemplateCreator] = useState(false);
@@ -33,11 +33,6 @@ const DocumentTemplates: React.FC = () => {
       setTemplates(JSON.parse(savedTemplates));
     }
   }, []);
-
-  const filteredTemplates = templates.filter(template =>
-    template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    template.category?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   const handleEditTemplate = (template: Template) => {
     setSelectedTemplate(template);
@@ -57,32 +52,9 @@ const DocumentTemplates: React.FC = () => {
     setShowTemplateCreator(false);
   };
 
-  const handleTemplateCreated = (newTemplate: Template) => {
-    const updatedTemplates = [...templates, newTemplate];
-    setTemplates(updatedTemplates);
-    localStorage.setItem('documentTemplates', JSON.stringify(updatedTemplates));
-    setShowTemplateCreator(false);
-  };
-
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <Input
-              placeholder="Search templates..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-64"
-            />
-          </div>
-        </div>
-        <Button onClick={() => setShowTemplateCreator(true)} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          Create Template
-        </Button>
-      </div>
+      <h2 className="text-2xl font-bold text-gray-900">Document Templates</h2>
 
       <Tabs defaultValue="user" value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2">

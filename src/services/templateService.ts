@@ -12,29 +12,46 @@ export interface CreateTemplateData {
 
 export class TemplateService {
   static async createTemplate(data: CreateTemplateData): Promise<DatabaseTemplate> {
-    const { data: template, error } = await supabase
-      .from('document_templates')
-      .insert({
-        name: data.name,
-        description: data.description,
-        category: data.category,
-        content: data.content,
-        variables: data.variables,
-        is_active: true
-      })
-      .select()
-      .single();
+    try {
+      console.log('Creating template:', data.name);
+      
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        console.warn('Auth error when creating template:', userError.message);
+        // Continue without user ID for now
+      }
+      
+      const { data: template, error } = await supabase
+        .from('document_templates')
+        .insert({
+          name: data.name,
+          description: data.description,
+          category: data.category,
+          content: data.content,
+          variables: data.variables,
+          created_by: user?.id || null,
+          is_active: true
+        })
+        .select()
+        .single();
 
-    if (error) {
-      console.error('Error creating template:', error);
-      throw new Error('Failed to create template');
+      if (error) {
+        console.error('Error creating template:', error);
+        throw new Error(`Failed to create template: ${error.message}`);
+      }
+
+      console.log('Template created successfully:', template.id);
+      
+      // Convert variables from Json to string[] for type safety
+      return {
+        ...template,
+        variables: Array.isArray(template.variables) ? template.variables as string[] : []
+      };
+    } catch (error) {
+      console.error('TemplateService create error:', error);
+      throw error;
     }
-
-    // Convert variables from Json to string[] for type safety
-    return {
-      ...template,
-      variables: Array.isArray(template.variables) ? template.variables as string[] : []
-    };
   }
 
   static async getAllTemplates(): Promise<DatabaseTemplate[]> {
