@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   FileText, 
@@ -12,7 +13,9 @@ import {
   Search,
   Plus,
   Eye,
-  FolderOpen
+  FolderOpen,
+  Save,
+  X
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TemplateService } from "@/services/templateService";
@@ -26,6 +29,14 @@ const DocumentTemplates = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<DatabaseTemplate | null>(null);
   const [showTemplateCreator, setShowTemplateCreator] = useState(false);
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<DatabaseTemplate | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    description: '',
+    content: '',
+    variables: [] as string[]
+  });
   const [templates, setTemplates] = useState<DatabaseTemplate[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -66,11 +77,54 @@ const DocumentTemplates = () => {
     });
   };
 
-  const handleEditTemplate = (template: DatabaseTemplate) => {
-    toast({
-      title: "Template Editor",
-      description: "Template editing functionality coming soon",
+  const handleOpenEditor = (template: DatabaseTemplate) => {
+    setEditingTemplate(template);
+    setEditForm({
+      name: template.name,
+      description: template.description || '',
+      content: template.content,
+      variables: template.variables
     });
+    setShowTemplateEditor(true);
+  };
+
+  const handleCloseEditor = () => {
+    setShowTemplateEditor(false);
+    setEditingTemplate(null);
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!editingTemplate) return;
+    
+    try {
+      // Extract variables from content
+      const extractedVariables = TemplateService.extractVariablesFromContent(editForm.content);
+      
+      const updatedTemplate = await TemplateService.updateTemplate(editingTemplate.id, {
+        name: editForm.name,
+        description: editForm.description,
+        content: editForm.content,
+        variables: extractedVariables
+      });
+      
+      // Update the template in the local state
+      setTemplates(prev => 
+        prev.map(t => t.id === updatedTemplate.id ? updatedTemplate : t)
+      );
+      
+      toast({
+        title: "Template Updated",
+        description: "The template has been updated successfully",
+      });
+      
+      handleCloseEditor();
+    } catch (error) {
+      toast({
+        title: "Update Failed",
+        description: "Could not update the template",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleGenerateDocument = (template: DatabaseTemplate) => {
@@ -196,7 +250,7 @@ const DocumentTemplates = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleEditTemplate(template)}
+                          onClick={() => handleOpenEditor(template)}
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
@@ -330,6 +384,76 @@ const DocumentTemplates = () => {
           <TemplateStorage />
         </TabsContent>
       </Tabs>
+      
+      {/* Template Editor Modal */}
+      {showTemplateEditor && editingTemplate && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Edit Template</h2>
+              <Button variant="ghost" size="sm" onClick={handleCloseEditor}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <div className="p-6 max-h-[calc(90vh-120px)] overflow-y-auto space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Template Name</label>
+                <Input 
+                  value={editForm.name}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Enter template name"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Description</label>
+                <Input 
+                  value={editForm.description}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Enter template description"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Template Content</label>
+                <p className="text-xs text-gray-500">
+                  Use double curly braces for variables: {`{{variable_name}}`}
+                </p>
+                <Textarea 
+                  value={editForm.content}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, content: e.target.value }))}
+                  placeholder="Enter template content"
+                  className="font-mono text-sm min-h-[300px]"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Variables</label>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <p className="text-sm">
+                    Current variables: {editingTemplate.variables.length > 0 
+                      ? editingTemplate.variables.map(v => `{{${v}}}`).join(', ') 
+                      : 'None'}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Variables will be automatically extracted when you save the template.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button variant="outline" onClick={handleCloseEditor}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveTemplate} className="bg-blue-600 hover:bg-blue-700">
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Template
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Template Variable Editor Modal */}
       {selectedTemplate && (
