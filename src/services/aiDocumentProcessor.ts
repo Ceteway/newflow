@@ -1,4 +1,3 @@
-
 export interface PlaceholderMatch {
   text: string;
   suggestedVariable: string;

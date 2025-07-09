@@ -11,6 +11,7 @@ import { TemplateService } from "@/services/templateService";
 import { SystemTemplateService, SystemTemplate } from "@/services/systemTemplateService";
 import AIVariableAssistant from "./AIVariableAssistant";
 import { AIDocumentProcessor } from "@/services/aiDocumentProcessor";
+import { AIDocumentProcessor } from "@/services/aiDocumentProcessor";
 import { TemplateCategory } from "@/types/database";
 import { 
   FileText, 
