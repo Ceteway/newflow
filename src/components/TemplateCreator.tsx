@@ -50,7 +50,7 @@ const highlightBlankFields = (content: string): string => {
 
 interface TemplateCreatorProps {
   onClose: () => void;
-  onTemplateCreated: (template: any) => void;
+  onTemplateCreated: (newTemplate: any) => void;
 }
 
 const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) => {
@@ -226,20 +226,24 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
 
     setIsCreating(true);
     try {
-      await TemplateService.createTemplate({
+      const newTemplate = {
+        id: `template_${Date.now()}`,
         name: formData.name,
         description: formData.description,
         category: formData.category,
         content: formData.content,
-        variables: extractedVariables
-      });
+        variables: extractedVariables,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      onTemplateCreated(newTemplate);
 
       toast({
         title: "Template Created",
         description: "Your template has been saved successfully",
       });
 
-      onTemplateCreated();
       onClose();
     } catch (error) {
       toast({

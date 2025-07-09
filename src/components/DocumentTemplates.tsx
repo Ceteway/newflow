@@ -3,9 +3,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Search, Plus, Edit, Trash2, FileText, Download } from 'lucide-react';
 import TemplateCreator from './TemplateCreator';
 import TemplateVariableEditor from './TemplateVariableEditor';
+import FanisiTemplates from './FanisiTemplates';
 
 interface Template {
   id: string;
@@ -22,6 +24,7 @@ const DocumentTemplates: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [showTemplateCreator, setShowTemplateCreator] = useState(false);
+  const [activeTab, setActiveTab] = useState('user');
 
   useEffect(() => {
     // Load templates from localStorage or API
@@ -74,78 +77,91 @@ const DocumentTemplates: React.FC = () => {
         </Button>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <Input
-            placeholder="Search templates..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-      </div>
+      <Tabs defaultValue="user" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="user">User Templates</TabsTrigger>
+          <TabsTrigger value="fanisi">Fanisi Templates</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="user" className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="Search templates..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredTemplates.map((template) => (
-          <Card key={template.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-blue-600" />
-                  <CardTitle className="text-lg">{template.name}</CardTitle>
-                </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleEditTemplate(template)}
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteTemplate(template.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-              {template.category && (
-                <Badge variant="secondary" className="w-fit">
-                  {template.category}
-                </Badge>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredTemplates.map((template) => (
+              <Card key={template.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-blue-600" />
+                      <CardTitle className="text-lg">{template.name}</CardTitle>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditTemplate(template)}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteTemplate(template.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  {template.category && (
+                    <Badge variant="secondary" className="w-fit">
+                      {template.category}
+                    </Badge>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="mb-4">
+                    {template.content.substring(0, 100)}...
+                  </CardDescription>
+                  <div className="flex items-center justify-between text-sm text-gray-500">
+                    <span>{template.variables.length} variables</span>
+                    <span>Updated {new Date(template.updatedAt).toLocaleDateString()}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {filteredTemplates.length === 0 && (
+            <div className="text-center py-12">
+              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No templates found</h3>
+              <p className="text-gray-600 mb-4">
+                {searchTerm ? 'Try adjusting your search terms' : 'Create your first template to get started'}
+              </p>
+              {!searchTerm && (
+                <Button onClick={() => setShowTemplateCreator(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Template
+                </Button>
               )}
-            </CardHeader>
-            <CardContent>
-              <CardDescription className="mb-4">
-                {template.content.substring(0, 100)}...
-              </CardDescription>
-              <div className="flex items-center justify-between text-sm text-gray-500">
-                <span>{template.variables.length} variables</span>
-                <span>Updated {new Date(template.updatedAt).toLocaleDateString()}</span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {filteredTemplates.length === 0 && (
-        <div className="text-center py-12">
-          <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No templates found</h3>
-          <p className="text-gray-600 mb-4">
-            {searchTerm ? 'Try adjusting your search terms' : 'Create your first template to get started'}
-          </p>
-          {!searchTerm && (
-            <Button onClick={() => setShowTemplateCreator(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Create Template
-            </Button>
+            </div>
           )}
-        </div>
-      )}
+        </TabsContent>
+        
+        <TabsContent value="fanisi">
+          <FanisiTemplates />
+        </TabsContent>
+      </Tabs>
 
       {/* Template Variable Editor Modal */}
       {selectedTemplate && (
