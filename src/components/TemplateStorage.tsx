@@ -59,8 +59,8 @@ const TemplateStorage = () => {
     }
 
     const filtered = templates.filter(template =>
-      template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (template.description && template.description.toLowerCase().includes(searchTerm.toLowerCase()))
+      (template.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (template.description || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
     setFilteredTemplates(filtered);
   };
