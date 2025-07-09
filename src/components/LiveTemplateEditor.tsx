@@ -18,6 +18,28 @@ import {
   X
 } from "lucide-react";
 
+// Helper function to highlight blank fields
+const highlightBlankFields = (content: string): string => {
+  // Patterns to match blank fields (dots, dashes, underscores)
+  const patterns = [
+    /\.{3,}/g,           // Three or more dots
+    /-{3,}/g,            // Three or more dashes
+    /_{3,}/g,            // Three or more underscores
+    /\[([^\]]*)\]/g,     // Bracketed text
+    /\(([^)]*)\)/g,      // Parenthetical placeholders
+  ];
+  
+  let highlightedContent = content;
+  
+  patterns.forEach(pattern => {
+    highlightedContent = highlightedContent.replace(pattern, (match) => {
+      return `<span class="bg-green-200 hover:bg-green-300 cursor-pointer px-1 rounded" data-placeholder="${match}">${match}</span>`;
+    });
+  });
+  
+  return highlightedContent;
+};
+
 interface LiveTemplateEditorProps {
   template: {
     id: string;
@@ -192,7 +214,7 @@ const LiveTemplateEditor = ({ template, onClose, onSave }: LiveTemplateEditorPro
   };
 
   const renderHighlightedContent = () => {
-    const highlightedContent = AIDocumentProcessor.highlightPlaceholders(content);
+    const highlightedContent = highlightBlankFields(content);
     
     return (
       <div

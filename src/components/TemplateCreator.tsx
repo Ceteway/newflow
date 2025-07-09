@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { TemplateService } from "@/services/templateService";
 import { SystemTemplateService, SystemTemplate } from "@/services/systemTemplateService";
-import AIVariableAssistant from "./AIVariableAssistant";
+import AIVariableAssistant, { AIDocumentProcessor } from "./AIVariableAssistant";
 import { TemplateCategory } from "@/types/database";
 import { 
   FileText, 
@@ -24,6 +24,28 @@ import {
   FolderOpen
 } from "lucide-react";
 import mammoth from "mammoth";
+
+// Helper function to highlight blank fields
+const highlightBlankFields = (content: string): string => {
+  // Patterns to match blank fields (dots, dashes, underscores)
+  const patterns = [
+    /\.{3,}/g,           // Three or more dots
+    /-{3,}/g,            // Three or more dashes
+    /_{3,}/g,            // Three or more underscores
+    /\[([^\]]*)\]/g,     // Bracketed text
+    /\(([^)]*)\)/g,      // Parenthetical placeholders
+  ];
+  
+  let highlightedContent = content;
+  
+  patterns.forEach(pattern => {
+    highlightedContent = highlightedContent.replace(pattern, (match) => {
+      return `<span class="bg-green-200 hover:bg-green-300 cursor-pointer px-1 rounded" data-placeholder="${match}">${match}</span>`;
+    });
+  });
+  
+  return highlightedContent;
+};
 
 interface TemplateCreatorProps {
   onClose: () => void;
@@ -46,6 +68,8 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
   const [isTemplateUploaded, setIsTemplateUploaded] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState('');
   const [templateSource, setTemplateSource] = useState<'upload' | 'system'>('upload');
+  const [selectedPlaceholder, setSelectedPlaceholder] = useState<string | null>(null);
+  const [variableName, setVariableName] = useState('');
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -114,6 +138,33 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
     }
   };
 
+  const handlePlaceholderClick = (placeholder: string, context: string) => {
+    setSelectedPlaceholder(placeholder);
+    const suggestedName = AIDocumentProcessor.generateSmartVariableName(context, placeholder);
+    setVariableName(suggestedName);
+  };
+
+  const handleReplacePlaceholder = () => {
+    if (!selectedPlaceholder || !variableName) return;
+
+    const placeholder = `{{${variableName}}}`;
+    const updatedContent = formData.content.replace(selectedPlaceholder, placeholder);
+    setFormData(prev => ({ ...prev, content: updatedContent }));
+    
+    // Add to variables if not exists
+    if (!extractedVariables.includes(variableName)) {
+      setExtractedVariables(prev => [...prev, variableName]);
+    }
+
+    setSelectedPlaceholder(null);
+    setVariableName('');
+
+    toast({
+      title: "Placeholder Replaced",
+      description: `Replaced with variable: ${variableName}`,
+    });
+  };
+
   const handleAIContentUpdate = (content: string, variables: string[]) => {
     setFormData(prev => ({ ...prev, content }));
     setExtractedVariables(variables);
@@ -141,6 +192,25 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
       title: "Variables Extracted",
       description: `Found ${variables.length} variables`,
     });
+  };
+
+  const renderHighlightedContent = () => {
+    const highlightedContent = highlightBlankFields(formData.content);
+    
+    return (
+      <div
+        className="min-h-[400px] p-4 border rounded-lg bg-white font-mono text-sm leading-relaxed"
+        dangerouslySetInnerHTML={{ __html: highlightedContent }}
+        onClick={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.hasAttribute('data-placeholder')) {
+            const placeholder = target.getAttribute('data-placeholder') || '';
+            const context = target.parentElement?.textContent || '';
+            handlePlaceholderClick(placeholder, context);
+          }
+        }}
+      />
+    );
   };
 
   const handleCreateTemplate = async () => {
@@ -357,22 +427,26 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
                   onClick={() => setShowEditor(!showEditor)}
                 >
                   <Edit3 className="w-4 h-4 mr-2" />
-                  {showEditor ? "Hide Editor" : "Show Editor"}
+                  {showEditor ? "View Highlights" : "Edit Text"}
                 </Button>
               </div>
             </div>
             
-            <Textarea
-              id="content"
-              value={formData.content}
-              onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-              placeholder={isTemplateUploaded ? 
-                "Your document content appears here. Edit as needed and use AI to convert blank fields to variables." :
-                "Select a template source above to get started, or enter template content manually."
-              }
-              rows={showEditor ? 12 : 8}
-              className={`${showEditor ? "font-mono text-sm" : ""} ${isTemplateUploaded ? "bg-blue-50" : ""}`}
-            />
+            {showEditor ? (
+              <Textarea
+                id="content"
+                value={formData.content}
+                onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
+                placeholder={isTemplateUploaded ? 
+                  "Your document content appears here. Edit as needed and use AI to convert blank fields to variables." :
+                  "Select a template source above to get started, or enter template content manually."
+                }
+                rows={12}
+                className={`font-mono text-sm ${isTemplateUploaded ? "bg-blue-50" : ""}`}
+              />
+            ) : (
+              renderHighlightedContent()
+            )}
             
             <div className="flex items-center justify-between text-xs text-gray-500">
               <span>Use double curly braces for variables: {`{{landlord_name}}, {{site_location}}, {{current_date}}`}</span>
@@ -432,6 +506,49 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
           </div>
         </CardContent>
       </Card>
+
+      {/* Placeholder Replacement Modal */}
+      {selectedPlaceholder && (
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-[60]">
+          <Card className="w-96">
+            <CardHeader>
+              <CardTitle>Replace Placeholder</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>Current Placeholder</Label>
+                <code className="block bg-gray-100 p-2 rounded text-sm">
+                  {selectedPlaceholder}
+                </code>
+              </div>
+              <div>
+                <Label>Variable Name</Label>
+                <Input
+                  value={variableName}
+                  onChange={(e) => setVariableName(e.target.value)}
+                  placeholder="Enter variable name"
+                />
+              </div>
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedPlaceholder(null)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleReplacePlaceholder}
+                  disabled={!variableName}
+                  className="flex-1"
+                >
+                  Replace
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

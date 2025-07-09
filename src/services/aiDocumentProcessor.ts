@@ -204,23 +204,4 @@ export class AIDocumentProcessor {
     };
   }
 
-  static highlightPlaceholders(content: string): string {
-    const placeholderPatterns = [
-      /\.{3,}/g,
-      /-{3,}/g,
-      /_{3,}/g,
-      /\[([^\]]*)\]/g,
-      /\(([^)]*)\)/g
-    ];
-
-    let highlightedContent = content;
-    
-    placeholderPatterns.forEach(pattern => {
-      highlightedContent = highlightedContent.replace(pattern, (match) => {
-        return `<span class="bg-green-200 hover:bg-green-300 cursor-pointer px-1 rounded" data-placeholder="${match}">${match}</span>`;
-      });
-    });
-
-    return highlightedContent;
-  }
 }
