@@ -410,7 +410,8 @@ export class SystemTemplateService {
       console.log('Extracting text from template:', template.name, 'Size:', template.file_data.length);
 
       if (!template.file_data || template.file_data.length === 0) {
-        throw new Error('No file data available');
+        console.warn('No file data available for template:', template.name);
+        return `[Template: ${template.name}]\n\nNo file data available for preview.\n\nFilename: ${template.file_name}\nType: ${template.content_type}\n\nThis template may need to be re-uploaded or the file data may be corrupted.`;
       }
 
       try {
