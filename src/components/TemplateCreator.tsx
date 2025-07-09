@@ -50,7 +50,7 @@ const highlightBlankFields = (content: string): string => {
 
 interface TemplateCreatorProps {
   onClose: () => void;
-  onTemplateCreated: () => void;
+  onTemplateCreated: (template: any) => void;
 }
 
 const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) => {
@@ -217,8 +217,8 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
   const handleCreateTemplate = async () => {
     if (!formData.name || !formData.content) {
       toast({
-        title: "Missing Required Information",
-        description: "Please provide both template name and content",
+        title: "Missing Information",
+        description: "Please provide template name and content",
         variant: "destructive"
       });
       return;
@@ -226,7 +226,7 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
 
     setIsCreating(true);
     try {
-      const createdTemplate = await TemplateService.createTemplate({
+      await TemplateService.createTemplate({
         name: formData.name,
         description: formData.description,
         category: formData.category,
@@ -236,27 +236,15 @@ const TemplateCreator = ({ onClose, onTemplateCreated }: TemplateCreatorProps) =
 
       toast({
         title: "Template Created",
-        description: `Template "${formData.name}" has been saved successfully`,
+        description: "Your template has been saved successfully",
       });
 
-      // Convert to the expected format for onTemplateCreated
-      const newTemplate = {
-        id: createdTemplate.id,
-        name: createdTemplate.name,
-        content: createdTemplate.content,
-        variables: createdTemplate.variables,
-        category: createdTemplate.category,
-        createdAt: createdTemplate.created_at,
-        updatedAt: createdTemplate.updated_at
-      };
-      
-      onTemplateCreated(newTemplate);
+      onTemplateCreated();
       onClose();
     } catch (error) {
-      console.error('Template creation error:', error);
       toast({
         title: "Creation Failed",
-        description: error instanceof Error ? error.message : "Could not create the template",
+        description: "Could not create the template",
         variant: "destructive"
       });
     } finally {
