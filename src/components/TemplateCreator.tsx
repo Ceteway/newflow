@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { TemplateService } from "@/services/templateService";
 import { SystemTemplateService, SystemTemplate } from "@/services/systemTemplateService";
-import AIVariableAssistant, { AIDocumentProcessor } from "./AIVariableAssistant";
+import AIVariableAssistant from "./AIVariableAssistant";
+import { AIDocumentProcessor } from "@/services/aiDocumentProcessor";
 import { TemplateCategory } from "@/types/database";
 import { 
   FileText, 
