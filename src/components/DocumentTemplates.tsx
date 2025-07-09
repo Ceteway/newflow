@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { Search, Plus, Edit, Trash2, FileText, Download } from 'lucide-react';
-import { TemplateCreator } from './TemplateCreator';
+import TemplateCreator from './TemplateCreator';
 import { TemplateVariableEditor } from './TemplateVariableEditor';
 
 interface Template {
