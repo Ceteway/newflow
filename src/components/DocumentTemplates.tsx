@@ -131,7 +131,7 @@ const DocumentTemplates = () => {
     setSelectedTemplate(template);
   };
 
-  const handleCloseEditor = () => {
+  const handleCloseVariableEditor = () => {
     setSelectedTemplate(null);
   };
 
@@ -464,7 +464,7 @@ const DocumentTemplates = () => {
             content: selectedTemplate.content,
             variables: selectedTemplate.variables
           }}
-          onClose={handleCloseEditor}
+          onClose={handleCloseVariableEditor}
         />
       )}
 
