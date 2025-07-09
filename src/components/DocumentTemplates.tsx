@@ -7,7 +7,6 @@ import { Search, Plus, Edit, Trash2, FileText, Download, FileUp } from 'lucide-r
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import SystemTemplatesManager from './SystemTemplatesManager';
 import TemplateStorage from './TemplateStorage';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import FanisiTemplates from './FanisiTemplates';
 
 interface Template {
@@ -24,6 +23,8 @@ const DocumentTemplates: React.FC = () => {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('user');
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [showTemplateCreator, setShowTemplateCreator] = useState(false);
 
   useEffect(() => {
     // Load templates from localStorage or API
@@ -57,21 +58,32 @@ const DocumentTemplates: React.FC = () => {
   };
 
   const handleTemplateCreated = (newTemplate: Template) => {
+    const updatedTemplates = [...templates, newTemplate];
+    setTemplates(updatedTemplates);
+    localStorage.setItem('documentTemplates', JSON.stringify(updatedTemplates));
+    setShowTemplateCreator(false);
   };
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="user-templates" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-            </div>
-            <Button onClick={() => setShowTemplateCreator(true)} className="flex items-center gap-2">
-              <Plus className="w-4 h-4" />
-              Create Template
-            </Button>
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <Input
+              placeholder="Search templates..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-64"
+            />
           </div>
+        </div>
+        <Button onClick={() => setShowTemplateCreator(true)} className="flex items-center gap-2">
+          <Plus className="w-4 h-4" />
+          Create Template
+        </Button>
+      </div>
 
-                placeholder="Search templates..."
-                value={searchTerm}
       <Tabs defaultValue="user" value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="user">User Templates</TabsTrigger>
