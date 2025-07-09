@@ -59,8 +59,8 @@ const TemplateStorage = () => {
     }
 
     const filtered = templates.filter(template =>
-      (template?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (template?.description || '').toLowerCase().includes(searchTerm.toLowerCase())
+      template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (template.description && template.description.toLowerCase().includes(searchTerm.toLowerCase()))
     );
     setFilteredTemplates(filtered);
   };
@@ -151,7 +151,7 @@ const TemplateStorage = () => {
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
                   <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">
-                    {template.name || 'Untitled Template'}
+                    {template.name}
                   </h3>
                   <p className="text-sm text-gray-600 mb-2 line-clamp-2">
                     {template.description || "No description"}
@@ -173,13 +173,13 @@ const TemplateStorage = () => {
                   <span>Modified: {new Date(template.updated_at).toLocaleDateString()}</span>
                 </div>
                 <Badge className="bg-green-100 text-green-800">
-                  {template.is_active ? 'Active' : 'Inactive'}
+                  Active
                 </Badge>
               </div>
 
               {/* Content Preview */}
               <div className="bg-gray-50 p-2 rounded text-xs text-gray-600 mb-3 max-h-16 overflow-hidden">
-                {(template.content || '').substring(0, 100)}...
+                {template.content.substring(0, 100)}...
               </div>
 
               <div className="flex items-center space-x-2">
