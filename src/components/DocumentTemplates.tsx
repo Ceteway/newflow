@@ -22,7 +22,6 @@ interface Template {
 const DocumentTemplates: React.FC = () => {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [activeTab, setActiveTab] = useState('user');
-  const [activeTab, setActiveTab] = useState('user');
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [showTemplateCreator, setShowTemplateCreator] = useState(false);
 
