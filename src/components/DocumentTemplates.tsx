@@ -6,6 +6,7 @@ import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Search, Plus, Edit, Trash2, FileText, Download } from 'lucide-react';
 import TemplateCreator from './TemplateCreator';
+import TemplateUploader from './TemplateUploader';
 import TemplateVariableEditor from './TemplateVariableEditor';
 import FanisiTemplates from './FanisiTemplates';
 
@@ -24,6 +25,7 @@ const DocumentTemplates: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [showTemplateCreator, setShowTemplateCreator] = useState(false);
+  const [showTemplateUploader, setShowTemplateUploader] = useState(false);
   const [activeTab, setActiveTab] = useState('user');
 
   useEffect(() => {
@@ -57,6 +59,10 @@ const DocumentTemplates: React.FC = () => {
     setShowTemplateCreator(false);
   };
 
+  const handleCloseTemplateUploader = () => {
+    setShowTemplateUploader(false);
+  };
+
   const handleTemplateCreated = (newTemplate: Template) => {
     const updatedTemplates = [...templates, newTemplate];
     setTemplates(updatedTemplates);
@@ -64,16 +70,34 @@ const DocumentTemplates: React.FC = () => {
     setShowTemplateCreator(false);
   };
 
+  const handleTemplateUploaded = (destination: 'user' | 'fanisi') => {
+    if (destination === 'user') {
+      // Reload user templates from localStorage
+      const savedTemplates = localStorage.getItem('documentTemplates');
+      if (savedTemplates) {
+        setTemplates(JSON.parse(savedTemplates));
+      }
+    }
+    // For fanisi templates, the FanisiTemplates component will handle reloading
+    setActiveTab(destination);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <div>
+        <div className="flex-1">
           <h2 className="text-2xl font-bold text-gray-900">Document Templates</h2>
           <p className="text-gray-600">Manage and organize your document templates</p>
         </div>
         <Button onClick={() => setShowTemplateCreator(true)} className="flex items-center gap-2">
           <Plus className="w-4 h-4" />
           Create Template
+        </Button>
+        <Button 
+          onClick={() => setShowTemplateUploader(true)} 
+          className="ml-2 bg-green-600 hover:bg-green-700"
+        >
+          <Upload className="w-4 h-4 mr-2" /> Upload
         </Button>
       </div>
 
@@ -181,6 +205,14 @@ const DocumentTemplates: React.FC = () => {
         <TemplateCreator
           onClose={handleCloseTemplateCreator}
           onTemplateCreated={handleTemplateCreated}
+        />
+      )}
+
+      {/* Template Uploader Modal */}
+      {showTemplateUploader && (
+        <TemplateUploader
+          onClose={handleCloseTemplateUploader}
+          onTemplateUploaded={handleTemplateUploaded}
         />
       )}
     </div>

@@ -29,6 +29,7 @@ const FanisiTemplates = () => {
   const [showUploadForm, setShowUploadForm] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<SystemTemplate | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [uploadForm, setUploadForm] = useState({
     name: '',
@@ -193,11 +194,18 @@ const FanisiTemplates = () => {
     return category.charAt(0).toUpperCase() + category.slice(1);
   };
 
-  const filteredTemplates = templates.filter(template => 
-    template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    template.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    template.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredTemplates = templates.filter(template => {
+    // Filter by search term
+    const matchesSearch = 
+      template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      template.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      template.category.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Filter by category
+    const matchesCategory = selectedCategory === "all" || template.category === selectedCategory;
+    
+    return matchesSearch && matchesCategory;
+  });
 
   if (loading) {
     return (
@@ -334,7 +342,36 @@ const FanisiTemplates = () => {
       )}
 
       {/* Search Bar */}
-      <div className="relative">
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Input
+            placeholder="Search templates..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Select 
+          value={selectedCategory} 
+          onValueChange={setSelectedCategory}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by category" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            <SelectItem value="agreements">Agreements</SelectItem>
+            <SelectItem value="forms">Forms</SelectItem>
+            <SelectItem value="letters">Letters</SelectItem>
+            <SelectItem value="invoices">Invoices</SelectItem>
+            <SelectItem value="reports">Reports</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Old Search Bar - Replaced with the above */}
+      {/* <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
         <Input
           placeholder="Search templates..."
@@ -342,7 +379,7 @@ const FanisiTemplates = () => {
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10"
         />
-      </div>
+      </div> */}
 
       {/* Templates Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
