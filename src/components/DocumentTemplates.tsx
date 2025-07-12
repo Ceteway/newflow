@@ -52,7 +52,10 @@ function DocumentTemplates() {
       console.log(`Loaded ${systemDocs.length} system documents and ${userDocs.length} user templates`);
     } catch (error) {
       console.error('Error loading persisted documents:', error);
-      setState(prev => ({ ...prev, error: 'Failed to load saved documents' }));
+      // Don't show error to user if it's just a missing table (expected during setup)
+      if (error instanceof Error && !error.message.includes('does not exist')) {
+        setState(prev => ({ ...prev, error: 'Failed to load saved documents' }));
+      }
     } finally {
       setIsLoadingDocuments(false);
     }
@@ -61,7 +64,10 @@ function DocumentTemplates() {
   const handleDocumentUpload = useCallback((document: Document) => {
     // Save to database immediately
     DocumentPersistenceService.saveDocument(document).catch(error => {
-      console.error('Error persisting uploaded document:', error);
+      // Only log error if it's not about missing table
+      if (!error.message?.includes('does not exist')) {
+        console.error('Error persisting uploaded document:', error);
+      }
     });
     
     setState(prev => ({
@@ -73,7 +79,10 @@ function DocumentTemplates() {
   const handleDocumentSave = useCallback((document: Document) => {
     // Save to database
     DocumentPersistenceService.saveDocument(document).catch(error => {
-      console.error('Error persisting document changes:', error);
+      // Only log error if it's not about missing table
+      if (!error.message?.includes('does not exist')) {
+        console.error('Error persisting document changes:', error);
+      }
     });
     
     setState(prev => {
@@ -108,7 +117,10 @@ function DocumentTemplates() {
   const handleDocumentDelete = useCallback((documentId: string) => {
     // Delete from database
     DocumentPersistenceService.deleteDocument(documentId).catch(error => {
-      console.error('Error deleting document from database:', error);
+      // Only log error if it's not about missing table
+      if (!error.message?.includes('does not exist')) {
+        console.error('Error deleting document from database:', error);
+      }
     });
     
     setState(prev => ({
@@ -124,7 +136,10 @@ function DocumentTemplates() {
   const handleDocumentRename = useCallback((documentId: string, newName: string) => {
     // Update in database
     DocumentPersistenceService.renameDocument(documentId, newName).catch(error => {
-      console.error('Error renaming document in database:', error);
+      // Only log error if it's not about missing table
+      if (!error.message?.includes('does not exist')) {
+        console.error('Error renaming document in database:', error);
+      }
     });
     
     setState(prev => ({

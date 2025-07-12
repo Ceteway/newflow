@@ -74,6 +74,22 @@ export class DocumentPersistenceService {
         return data;
       }
     } catch (error) {
+      // Check if the error is due to missing table
+      if (error instanceof Error && (error.message.includes('42P01') || error.message.includes('does not exist'))) {
+        console.warn('user_documents table does not exist yet. Document will not be persisted until migrations are applied.');
+        // Return a mock response to prevent breaking the UI
+        return {
+          id: document.id,
+          name: document.name,
+          content: document.content,
+          original_content: document.originalContent,
+          document_type: document.type,
+          blank_spaces: document.blankSpaces,
+          created_at: document.createdAt.toISOString(),
+          modified_at: document.modifiedAt.toISOString(),
+          user_id: 'temp'
+        };
+      }
       console.error('Error saving document:', error);
       throw new Error(`Failed to save document: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -96,6 +112,11 @@ export class DocumentPersistenceService {
         .order('modified_at', { ascending: false });
 
       if (error) {
+        // Check if the error is due to missing table
+        if (error.code === '42P01' || error.message?.includes('does not exist')) {
+          console.warn('user_documents table does not exist yet. This is expected if migrations haven\'t been applied.');
+          return [];
+        }
         console.error('Error loading documents:', error);
         return [];
       }
@@ -136,6 +157,11 @@ export class DocumentPersistenceService {
       if (error) throw error;
       console.log('Document deleted successfully');
     } catch (error) {
+      // Check if the error is due to missing table
+      if (error instanceof Error && (error.message.includes('42P01') || error.message.includes('does not exist'))) {
+        console.warn('user_documents table does not exist yet. Delete operation skipped.');
+        return;
+      }
       console.error('Error deleting document:', error);
       throw new Error(`Failed to delete document: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -162,6 +188,11 @@ export class DocumentPersistenceService {
       if (error) throw error;
       console.log('Document renamed successfully');
     } catch (error) {
+      // Check if the error is due to missing table
+      if (error instanceof Error && (error.message.includes('42P01') || error.message.includes('does not exist'))) {
+        console.warn('user_documents table does not exist yet. Rename operation skipped.');
+        return;
+      }
       console.error('Error renaming document:', error);
       throw new Error(`Failed to rename document: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
