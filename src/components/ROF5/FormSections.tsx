@@ -5,7 +5,6 @@ import SiteInformationSection from "./SiteInformationSection";
 import TitleDetailsSection from "./TitleDetailsSection";
 import LandlordInformationSection from "./LandlordInformationSection";
 import LeaseTermsSection from "./LeaseTermsSection";
-import DocumentsReceivedSection from "./DocumentsReceivedSection";
 import AdditionalInformationSection from "./AdditionalInformationSection";
 
 interface FormSectionsProps {
@@ -41,13 +40,6 @@ const FormSections = ({ formData, onInputChange, onDocumentCheck }: FormSections
       <LeaseTermsSection 
         formData={formData} 
         onInputChange={onInputChange} 
-      />
-      
-      <Separator />
-      
-      <DocumentsReceivedSection 
-        formData={formData} 
-        onDocumentCheck={onDocumentCheck} 
       />
       
       <Separator />

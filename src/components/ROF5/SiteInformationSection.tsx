@@ -48,39 +48,6 @@ const SiteInformationSection = ({ formData, onInputChange }: SiteInformationSect
             required
           />
         </div>
-        <div>
-          <Label htmlFor="county">County *</Label>
-          <Select value={formData.county} onValueChange={(value) => onInputChange("county", value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select County" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="nairobi">Nairobi</SelectItem>
-              <SelectItem value="mombasa">Mombasa</SelectItem>
-              <SelectItem value="kiambu">Kiambu</SelectItem>
-              <SelectItem value="nakuru">Nakuru</SelectItem>
-              <SelectItem value="uasin-gishu">Uasin Gishu</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="subCounty">Sub-County</Label>
-          <Input
-            id="subCounty"
-            value={formData.subCounty}
-            onChange={(e) => onInputChange("subCounty", e.target.value)}
-            placeholder="Enter sub-county"
-          />
-        </div>
-        <div>
-          <Label htmlFor="ward">Ward</Label>
-          <Input
-            id="ward"
-            value={formData.ward}
-            onChange={(e) => onInputChange("ward", e.target.value)}
-            placeholder="Enter ward"
-          />
-        </div>
       </div>
     </div>
   );

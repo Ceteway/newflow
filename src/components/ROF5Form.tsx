@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useROF5Form } from "@/hooks/useROF5Form";
 import { useWorkflow, WorkflowInstruction } from "@/contexts/WorkflowContext";
@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { FileText, Save, FolderOpen, Download } from "lucide-react";
+import { SystemTemplateService, SystemTemplate } from "@/services/systemTemplateService";
 
 const ROF5Form = () => {
   const {
@@ -46,6 +47,8 @@ const ROF5Form = () => {
   const [showLoadDialog, setShowLoadDialog] = useState(false);
   const [draftName, setDraftName] = useState('');
   const [savedDrafts, setSavedDrafts] = useState<SavedDraft[]>([]);
+
+  const [selectedAgreementTemplate, setSelectedAgreementTemplate] = useState<SystemTemplate | null>(null);
 
   const handleInputChangeWithAI = (field: keyof typeof formData, value: string) => {
     handleInputChange(field, value);
@@ -158,6 +161,20 @@ const ROF5Form = () => {
     });
   };
 
+  // Watch for leaseType changes and select matching template
+  useEffect(() => {
+    const selectTemplateByLeaseType = async () => {
+      if (!formData.leaseType) {
+        setSelectedAgreementTemplate(null);
+        return;
+      }
+      const systemTemplates = await SystemTemplateService.getAllSystemTemplates();
+      const match = systemTemplates.find(t => t.name.toLowerCase() === formData.leaseType.toLowerCase());
+      setSelectedAgreementTemplate(match || null);
+    };
+    selectTemplateByLeaseType();
+  }, [formData.leaseType]);
+
   const handleGenerateDocuments = async () => {
     if (!formData.siteName || !formData.siteCode || !formData.landlordName) {
       toast({
@@ -170,15 +187,20 @@ const ROF5Form = () => {
 
     try {
       setIsSubmitting(true);
-      
       toast({
         title: "Generating Documents",
         description: "Please wait while we generate your documents...",
       });
 
+      // Use the selected template for agreement if available
+      const documentOptionsWithTemplate = {
+        ...documentOptions,
+        agreementType: selectedAgreementTemplate ? selectedAgreementTemplate.name : formData.leaseType
+      };
+
       const documents = await DocumentGenerationService.generateDocumentsFromROF5(
         formData,
-        documentOptions
+        documentOptionsWithTemplate
       );
 
       setGeneratedDocuments(documents);
@@ -187,7 +209,6 @@ const ROF5Form = () => {
         title: "Documents Generated Successfully",
         description: `Generated ${documents.length} documents. Click download to save them.`,
       });
-
     } catch (error) {
       console.error('Document generation error:', error);
       toast({

@@ -16,7 +16,8 @@ import {
   Calendar,
   Clock,
   TrendingUp,
-  LogOut
+  LogOut,
+  Edit3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";

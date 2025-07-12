@@ -42,21 +42,12 @@ const TitleDetailsSection = ({ formData, onInputChange }: TitleDetailsSectionPro
           </Select>
         </div>
         <div>
-          <Label htmlFor="registrationSection">Registration Section</Label>
-          <Input
-            id="registrationSection"
-            value={formData.registrationSection}
-            onChange={(e) => onInputChange("registrationSection", e.target.value)}
-            placeholder="Enter registration section"
-          />
-        </div>
-        <div>
-          <Label htmlFor="landArea">Land Area</Label>
+          <Label htmlFor="landArea">Land Area (square metres)</Label>
           <Input
             id="landArea"
             value={formData.landArea}
             onChange={(e) => onInputChange("landArea", e.target.value)}
-            placeholder="e.g., 0.5 hectares"
+            placeholder="e.g., 1 by 1 square metres"
           />
         </div>
         <div>

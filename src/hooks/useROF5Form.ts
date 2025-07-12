@@ -8,14 +8,10 @@ export interface ROF5FormData {
   siteName: string;
   siteCode: string;
   siteLocation: string;
-  county: string;
-  subCounty: string;
-  ward: string;
   
   // Title Details
   titleNumber: string;
   titleType: string;
-  registrationSection: string;
   landArea: string;
   landUse: string;
   
@@ -38,7 +34,6 @@ export interface ROF5FormData {
   // Additional Terms
   permitType: string;
   specialConditions: string;
-  documentsReceived: string[];
   
   // Internal Details
   instructingCounsel: string;
@@ -50,12 +45,8 @@ const initialFormData: ROF5FormData = {
   siteName: "",
   siteCode: "",
   siteLocation: "",
-  county: "",
-  subCounty: "",
-  ward: "",
   titleNumber: "",
   titleType: "",
-  registrationSection: "",
   landArea: "",
   landUse: "",
   landlordName: "",
@@ -72,7 +63,6 @@ const initialFormData: ROF5FormData = {
   rentEscalation: "5",
   permitType: "",
   specialConditions: "",
-  documentsReceived: [],
   instructingCounsel: "",
   urgencyLevel: "",
   expectedCompletionDate: ""
@@ -85,15 +75,6 @@ export const useROF5Form = () => {
 
   const handleInputChange = (field: keyof ROF5FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleDocumentCheck = (document: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      documentsReceived: checked 
-        ? [...prev.documentsReceived, document]
-        : prev.documentsReceived.filter(d => d !== document)
-    }));
   };
 
   const loadFormData = (newFormData: ROF5FormData) => {
@@ -189,7 +170,6 @@ export const useROF5Form = () => {
   return {
     formData,
     handleInputChange,
-    handleDocumentCheck,
     generateDocumentVariables,
     submitForm,
     resetForm,
