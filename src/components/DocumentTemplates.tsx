@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { useEffect } from 'react';
 import FileUpload from './Templates/FileUpload';
 import DocumentList from './Templates/DocumentList';
 import DocumentEditor from './Templates/DocumentEditor';
@@ -7,8 +8,11 @@ import TabSystem from './Templates/TabSystem';
 import { Document, DocumentState } from '@/types/templates/document';
 import { exportToWord } from '@/utils/templates/exportHandler';
 import { generateId } from '@/utils/templates/blankSpaceManager';
+import { DocumentPersistenceService } from '@/services/documentPersistenceService';
+import { useAuth } from '@/hooks/useAuth';
 
 function DocumentTemplates() {
+  const { user } = useAuth();
   const [state, setState] = useState<DocumentState>({
     systemDocuments: [],
     userTemplates: [],
@@ -19,8 +23,47 @@ function DocumentTemplates() {
   });
 
   const [viewMode, setViewMode] = useState<'list' | 'edit' | 'preview'>('list');
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
+
+  // Load persisted documents when user is authenticated
+  useEffect(() => {
+    if (user) {
+      loadPersistedDocuments();
+    }
+  }, [user]);
+
+  const loadPersistedDocuments = async () => {
+    try {
+      setIsLoadingDocuments(true);
+      console.log('Loading persisted documents for user...');
+      
+      const documents = await DocumentPersistenceService.loadUserDocuments();
+      
+      // Separate system documents and user templates
+      const systemDocs = documents.filter(doc => doc.type === 'system');
+      const userDocs = documents.filter(doc => doc.type === 'template');
+      
+      setState(prev => ({
+        ...prev,
+        systemDocuments: systemDocs,
+        userTemplates: userDocs
+      }));
+      
+      console.log(`Loaded ${systemDocs.length} system documents and ${userDocs.length} user templates`);
+    } catch (error) {
+      console.error('Error loading persisted documents:', error);
+      setState(prev => ({ ...prev, error: 'Failed to load saved documents' }));
+    } finally {
+      setIsLoadingDocuments(false);
+    }
+  };
 
   const handleDocumentUpload = useCallback((document: Document) => {
+    // Save to database immediately
+    DocumentPersistenceService.saveDocument(document).catch(error => {
+      console.error('Error persisting uploaded document:', error);
+    });
+    
     setState(prev => ({
       ...prev,
       systemDocuments: [...prev.systemDocuments, document]
@@ -28,6 +71,11 @@ function DocumentTemplates() {
   }, []);
 
   const handleDocumentSave = useCallback((document: Document) => {
+    // Save to database
+    DocumentPersistenceService.saveDocument(document).catch(error => {
+      console.error('Error persisting document changes:', error);
+    });
+    
     setState(prev => {
       const isSystemDocument = prev.systemDocuments.some(d => d.id === document.id);
       let newTemplates;
@@ -58,6 +106,11 @@ function DocumentTemplates() {
   }, []);
 
   const handleDocumentDelete = useCallback((documentId: string) => {
+    // Delete from database
+    DocumentPersistenceService.deleteDocument(documentId).catch(error => {
+      console.error('Error deleting document from database:', error);
+    });
+    
     setState(prev => ({
       ...prev,
       userTemplates: prev.userTemplates.filter(d => d.id !== documentId),
@@ -69,6 +122,11 @@ function DocumentTemplates() {
   }, [state.currentDocument]);
 
   const handleDocumentRename = useCallback((documentId: string, newName: string) => {
+    // Update in database
+    DocumentPersistenceService.renameDocument(documentId, newName).catch(error => {
+      console.error('Error renaming document in database:', error);
+    });
+    
     setState(prev => ({
       ...prev,
       userTemplates: prev.userTemplates.map(d => 
@@ -161,6 +219,14 @@ function DocumentTemplates() {
         )}
         {viewMode === 'list' && (
           <div className="h-full">
+            {isLoadingDocuments && (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading your documents...</p>
+                </div>
+              </div>
+            )}
             {state.activeTab === 'upload' && (
               <div className="flex items-center justify-center h-full">
                 <FileUpload onDocumentUpload={handleDocumentUpload} />

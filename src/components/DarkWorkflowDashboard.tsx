@@ -23,6 +23,7 @@ import {
 import { useWorkflow, WorkflowInstruction } from "@/contexts/WorkflowContext";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { PDFReportService } from "@/services/pdfReportService";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -78,10 +79,40 @@ const DarkWorkflowDashboard = () => {
   };
 
   const handleAction = (action: string, instructionId: string) => {
-    toast({
-      title: "Action Triggered",
-      description: `${action} for instruction ${instructionId}`,
-    });
+    if (action === "Download ROF 6") {
+      const instruction = instructions.find(i => i.id === instructionId);
+      if (instruction) {
+        handleDownloadDetailedReport(instruction);
+      }
+    } else {
+      toast({
+        title: "Action Triggered",
+        description: `${action} for instruction ${instructionId}`,
+      });
+    }
+  };
+
+  const handleDownloadDetailedReport = async (instruction: WorkflowInstruction) => {
+    try {
+      toast({
+        title: "Generating Report",
+        description: "Creating detailed PDF report for this instruction...",
+      });
+
+      await PDFReportService.generateDetailedInstructionReport(instruction);
+      
+      toast({
+        title: "Report Downloaded",
+        description: `Detailed report for ${instruction.id} has been downloaded.`,
+      });
+    } catch (error) {
+      console.error('Error generating detailed report:', error);
+      toast({
+        title: "Download Failed",
+        description: "Failed to generate detailed report. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleAddReason = (instructionId: string) => {

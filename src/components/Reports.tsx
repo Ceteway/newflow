@@ -31,11 +31,15 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useWorkflow } from "@/contexts/WorkflowContext";
+import { PDFReportService } from "@/services/pdfReportService";
+import { useToast } from "@/hooks/use-toast";
 
 const Reports = () => {
   const { instructions } = useWorkflow();
+  const { toast } = useToast();
   const [dateRange, setDateRange] = useState("last-30-days");
   const [reportType, setReportType] = useState("overview");
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   // Generate sample data based on instructions
   const stageData = [
@@ -74,6 +78,39 @@ const Reports = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportPDF = async () => {
+    try {
+      setIsGeneratingPDF(true);
+      
+      toast({
+        title: "Generating PDF Report",
+        description: "Please wait while we generate your PDF report...",
+      });
+
+      const reportData = {
+        instructions,
+        dateRange,
+        reportType,
+        generatedAt: new Date().toLocaleString()
+      };
+
+      await PDFReportService.generateWorkflowReport(reportData);
+      
+      toast({
+        title: "PDF Report Generated",
+        description: "Your report has been downloaded successfully.",
+      });
+    } catch (error) {
+      console.error('Error generating PDF report:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to generate PDF report. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header with Filters */}
@@ -112,10 +149,21 @@ const Reports = () => {
                 variant="outline" 
                 size="sm" 
                 onClick={() => handleExport('json')}
+                disabled={isGeneratingPDF}
                 className="hover:scale-105 transition-transform duration-200"
               >
                 <Download className="w-4 h-4 mr-2" />
-                Export
+                Export JSON
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleExportPDF}
+                disabled={isGeneratingPDF}
+                className="hover:scale-105 transition-transform duration-200 bg-red-50 hover:bg-red-100 text-red-700 border-red-300"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {isGeneratingPDF ? "Generating..." : "Export PDF"}
               </Button>
             </div>
           </div>
