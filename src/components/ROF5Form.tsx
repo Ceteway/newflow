@@ -49,6 +49,8 @@ const ROF5Form = () => {
   const [savedDrafts, setSavedDrafts] = useState<SavedDraft[]>([]);
 
   const [selectedAgreementTemplate, setSelectedAgreementTemplate] = useState<SystemTemplate | null>(null);
+  const [systemTemplates, setSystemTemplates] = useState<SystemTemplate[]>([]);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
 
   const handleInputChangeWithAI = (field: keyof typeof formData, value: string) => {
     handleInputChange(field, value);
@@ -148,11 +150,18 @@ const ROF5Form = () => {
   };
 
   const handleSelectTemplate = (templateName: string) => {
-    setSelectedTemplate(templateName);
-    setDocumentOptions(prev => ({
-      ...prev, 
-      agreementType: templateName.toLowerCase()
-    }));
+    // Find the template object from the loaded system templates
+    const template = systemTemplates.find(t => t.name === templateName);
+    
+    if (template) {
+      setSelectedAgreementTemplate(template);
+      setSelectedTemplate(templateName);
+      setDocumentOptions(prev => ({
+        ...prev, 
+        agreementType: templateName.toLowerCase()
+      }));
+    }
+    
     setShowTemplateSelector(false);
     
     toast({
@@ -319,6 +328,29 @@ const ROF5Form = () => {
     setSavedDrafts(DraftService.getAllDrafts());
   });
 
+  // Load system templates on component mount
+  useEffect(() => {
+    const loadSystemTemplates = async () => {
+      try {
+        setIsLoadingTemplates(true);
+        const templates = await SystemTemplateService.getAllSystemTemplates();
+        setSystemTemplates(templates);
+        console.log(`Loaded ${templates.length} system templates`);
+      } catch (error) {
+        console.error('Error loading system templates:', error);
+        toast({
+          title: "Template Loading Failed",
+          description: "Failed to load system templates. Template selector may not work properly.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoadingTemplates(false);
+      }
+    };
+
+    loadSystemTemplates();
+  }, [toast]);
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <Card>
@@ -476,15 +508,15 @@ const ROF5Form = () => {
                       type="button"
                       onClick={() => setShowTemplateSelector(true)}
                       className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                      disabled={true}
+                      disabled={isLoadingTemplates}
                     >
-                      Select Template
+                      {isLoadingTemplates ? "Loading Templates..." : "Select Template"}
                     </button>
                     
-                    {selectedTemplate && (
+                    {selectedAgreementTemplate && (
                       <div className="p-3 bg-green-100 rounded">
                         <p className="text-sm text-green-800">
-                          Template: <strong>{selectedTemplate}</strong>
+                          Template: <strong>{selectedAgreementTemplate.name}</strong>
                         </p>
                       </div>
                     )}
@@ -538,7 +570,61 @@ const ROF5Form = () => {
         </CardContent>
       </Card>
 
-      {/* Template selection is disabled */}
+      {/* Template Selection Dialog */}
+      <Dialog open={showTemplateSelector} onOpenChange={setShowTemplateSelector}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Select Agreement Template</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 max-h-96 overflow-y-auto">
+            {isLoadingTemplates ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading templates...</p>
+              </div>
+            ) : systemTemplates.filter(t => t.category === 'agreements').length === 0 ? (
+              <div className="text-center py-8">
+                <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <p className="text-gray-600">No agreement templates available</p>
+                <p className="text-sm text-gray-500 mt-2">Upload some agreement templates to use this feature</p>
+              </div>
+            ) : (
+              systemTemplates
+                .filter(t => t.category === 'agreements')
+                .map((template) => (
+                  <div key={template.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900">{template.name}</h4>
+                      {template.description && (
+                        <p className="text-sm text-gray-600 mt-1">{template.description}</p>
+                      )}
+                      <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                        <span>File: {template.file_name}</span>
+                        <span>Category: {template.category}</span>
+                        <span>Created: {new Date(template.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => handleSelectTemplate(template.name)}
+                      className="ml-4"
+                      variant={selectedAgreementTemplate?.id === template.id ? "default" : "outline"}
+                    >
+                      {selectedAgreementTemplate?.id === template.id ? "Selected" : "Select"}
+                    </Button>
+                  </div>
+                ))
+            )}
+          </div>
+          <div className="flex justify-end space-x-2 pt-4 border-t">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowTemplateSelector(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
