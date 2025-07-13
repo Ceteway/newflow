@@ -98,18 +98,6 @@ const Reports = () => {
       
       toast({
         title: "PDF Report Generated",
-        description: "Your report has been downloaded successfully.",
-      });
-    } catch (error) {
-      console.error('Error generating PDF report:', error);
-      toast({
-        title: "Export Failed",
-        description: "Failed to generate PDF report. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsGeneratingPDF(false);
-    }
   };
   return (
     <div className="space-y-6 animate-fade-in">
@@ -145,16 +133,6 @@ const Reports = () => {
                   <SelectItem value="workflow">Workflow</SelectItem>
                 </SelectContent>
               </Select>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => handleExport('json')}
-                disabled={isGeneratingPDF}
-                className="hover:scale-105 transition-transform duration-200"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export JSON
-              </Button>
               <Button 
                 variant="outline" 
                 size="sm" 
