@@ -426,19 +426,37 @@ export class SystemTemplateService {
         const mammoth = await import('mammoth');
         console.log('Mammoth imported successfully');
         
-        const result = await mammoth.extractRawText({ arrayBuffer });
-        console.log('Raw text extraction result:', result.messages);
+        // Use convertToHtml instead of extractRawText to better preserve placeholders
+        const result = await mammoth.convertToHtml({ arrayBuffer });
+        console.log('HTML conversion result:', result.messages);
         
         if (!result.value) {
-          throw new Error('No text content extracted from document');
+          throw new Error('No HTML content extracted from document');
         }
         
-        const extractedText = result.value
+        // Convert HTML to plain text while preserving placeholders
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = result.value;
+        
+        // Extract text content from the HTML
+        let extractedText = tempDiv.textContent || tempDiv.innerText || '';
+        
+        // Clean up the text
+        extractedText = extractedText
           .replace(/\r\n/g, '\n')
           .replace(/\n{3,}/g, '\n\n')
           .trim();
 
         console.log('Text extracted successfully, length:', extractedText.length);
+        console.log('Sample of extracted text (first 500 chars):', extractedText.substring(0, 500));
+        
+        // Check for variable placeholders in the extracted text
+        const placeholderMatches = extractedText.match(/\{\{[^}]+\}\}/g);
+        if (placeholderMatches) {
+          console.log('Found variable placeholders:', placeholderMatches);
+        } else {
+          console.warn('No variable placeholders found in extracted text. This may indicate the template does not contain {{variable}} placeholders.');
+        }
         
         if (extractedText.length === 0) {
           throw new Error('Document appears to be empty or contains no readable text');
