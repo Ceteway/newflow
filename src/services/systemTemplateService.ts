@@ -25,52 +25,6 @@ export interface CreateSystemTemplateData {
   content_type: string;
 }
 
-// Helper function to convert Uint8Array to base64 for database storage
-function uint8ArrayToBase64(uint8Array: Uint8Array): string {
-  const chunkSize = 8192;
-  let binary = '';
-  
-  for (let i = 0; i < uint8Array.length; i += chunkSize) {
-    const chunk = uint8Array.subarray(i, i + chunkSize);
-    binary += String.fromCharCode.apply(null, Array.from(chunk));
-  }
-  
-  return btoa(binary);
-}
-
-// Helper function to convert base64 to Uint8Array
-function base64ToUint8Array(base64: string): Uint8Array {
-  try {
-    if (!base64 || base64.trim() === '') {
-      console.warn('Empty base64 data provided');
-      return new Uint8Array();
-    }
-    
-    // Clean the base64 string - remove any whitespace and validate format
-    const cleanBase64 = base64.trim().replace(/\s/g, '');
-    
-    // Basic validation for base64 format
-    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(cleanBase64)) {
-      console.warn('Invalid base64 format detected');
-      return new Uint8Array();
-    }
-    
-    // Ensure proper padding
-    const paddedBase64 = cleanBase64 + '='.repeat((4 - cleanBase64.length % 4) % 4);
-    
-    const binary = atob(paddedBase64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes;
-  } catch (error) {
-    console.error('Error decoding base64:', error, 'Input length:', base64?.length || 0);
-    console.warn('Returning empty Uint8Array due to base64 decode error');
-    return new Uint8Array();
-  }
-}
-
 export class SystemTemplateService {
   static async uploadSystemTemplate(data: CreateSystemTemplateData): Promise<SystemTemplate> {
     try {
@@ -92,16 +46,14 @@ export class SystemTemplateService {
         throw new Error('User not authenticated');
       }
 
-      // Convert Uint8Array to base64 string for storage
-      const base64Data = uint8ArrayToBase64(data.file_data);
-      console.log('File converted to base64, length:', base64Data.length);
+      console.log('Storing file data directly as Uint8Array, length:', data.file_data.length);
       
       const insertData = {
         name: data.name,
         description: data.description || null,
         category: data.category,
         file_name: data.file_name,
-        file_data: base64Data,
+        file_data: data.file_data, // Store Uint8Array directly
         content_type: data.content_type,
         uploaded_by: user.id,
         is_active: true
@@ -109,7 +61,7 @@ export class SystemTemplateService {
 
       console.log('Inserting template data:', { ...insertData, file_data: '[BASE64_DATA]' });
 
-      const { data: template, error } = await supabase
+      const { data: template, error } = await supabase.from('system_templates')
         .from('system_templates')
         .insert(insertData)
         .select()
@@ -161,16 +113,11 @@ export class SystemTemplateService {
 
       return (templates || []).map(template => {
         try {
-          // Handle both string and already converted data
-          let fileData: Uint8Array;
-          if (typeof template.file_data === 'string') {
-            fileData = base64ToUint8Array(template.file_data);
-          } else {
-            fileData = new Uint8Array(template.file_data || []);
-          }
+          // file_data is already Uint8Array from BYTEA column
+          const fileData = new Uint8Array(template.file_data);
           
           return {
-            ...template,
+            ...(template as SystemTemplate),
             file_data: fileData
           };
         } catch (decodeError) {
@@ -178,7 +125,7 @@ export class SystemTemplateService {
           console.warn(`Template ${template.name} has corrupted file data, returning empty data`);
           return {
             ...template,
-            file_data: new Uint8Array()
+            file_data: new Uint8Array() // Return empty if conversion fails
           };
         }
       });
@@ -211,16 +158,11 @@ export class SystemTemplateService {
       }
 
       try {
-        let fileData: Uint8Array;
-        if (typeof template.file_data === 'string') {
-          fileData = base64ToUint8Array(template.file_data);
-        } else {
-          fileData = new Uint8Array(template.file_data || []);
-        }
+        const fileData = new Uint8Array(template.file_data);
         
         return {
-          ...template,
-          file_data: fileData
+          ...(template as SystemTemplate),
+          file_data: fileData // Return Uint8Array directly
         };
       } catch (decodeError) {
         console.error(`Error processing template ${id}:`, decodeError);
@@ -246,10 +188,7 @@ export class SystemTemplateService {
       if (updates.category) updateData.category = updates.category;
       if (updates.file_name) updateData.file_name = updates.file_name;
       if (updates.content_type) updateData.content_type = updates.content_type;
-      
-      if (updates.file_data) {
-        updateData.file_data = uint8ArrayToBase64(updates.file_data);
-      }
+      if (updates.file_data) updateData.file_data = updates.file_data; // Store Uint8Array directly
 
       const { data: template, error } = await supabase
         .from('system_templates')
@@ -263,15 +202,10 @@ export class SystemTemplateService {
         throw new Error(`Failed to update system template: ${error.message}`);
       }
 
-      let fileData: Uint8Array;
-      if (updates.file_data) {
-        fileData = updates.file_data;
-      } else if (typeof template.file_data === 'string') {
-        fileData = base64ToUint8Array(template.file_data);
-      } else {
-        fileData = new Uint8Array(template.file_data || []);
-      }
-
+      // Ensure file_data is Uint8Array for return
+      const fileData = updates.file_data 
+        ? updates.file_data 
+        : new Uint8Array(template.file_data);
       return {
         ...template,
         file_data: fileData
