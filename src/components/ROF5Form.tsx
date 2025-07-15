@@ -198,7 +198,7 @@ const ROF5Form = () => {
       setIsSubmitting(true);
       toast({
         title: "Generating Documents",
-        description: "Please wait while we generate your documents...",
+        description: "Converting template and filling blank spaces with ROF5 data...",
       });
 
       // Use the selected template for agreement if available
@@ -216,13 +216,13 @@ const ROF5Form = () => {
 
       toast({
         title: "Documents Generated Successfully",
-        description: `Generated ${documents.length} documents. Click download to save them.`,
+        description: `Generated ${documents.length} documents with blank spaces filled from ROF5 data. Click download to save them.`,
       });
     } catch (error) {
       console.error('Document generation error:', error);
       toast({
         title: "Generation Failed",
-        description: "Failed to generate documents. Please check your templates and try again.",
+        description: "Failed to generate documents. Please check your templates and ROF5 data, then try again.",
         variant: "destructive"
       });
     } finally {

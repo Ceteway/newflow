@@ -426,7 +426,7 @@ export class SystemTemplateService {
         const mammoth = await import('mammoth');
         console.log('Mammoth imported successfully');
         
-        // Use convertToHtml instead of extractRawText to better preserve placeholders
+        // Use convertToHtml to preserve structure for blank space detection
         const result = await mammoth.convertToHtml({ arrayBuffer });
         console.log('HTML conversion result:', result.messages);
         
@@ -434,35 +434,31 @@ export class SystemTemplateService {
           throw new Error('No HTML content extracted from document');
         }
         
-        // Convert HTML to plain text while preserving placeholders
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = result.value;
+        // Return HTML content directly for blank space detection and filling
+        let htmlContent = result.value;
         
-        // Extract text content from the HTML
-        let extractedText = tempDiv.textContent || tempDiv.innerText || '';
-        
-        // Clean up the text
-        extractedText = extractedText
+        // Clean up the HTML
+        htmlContent = htmlContent
           .replace(/\r\n/g, '\n')
           .replace(/\n{3,}/g, '\n\n')
           .trim();
 
-        console.log('Text extracted successfully, length:', extractedText.length);
-        console.log('Sample of extracted text (first 500 chars):', extractedText.substring(0, 500));
+        console.log('HTML extracted successfully, length:', htmlContent.length);
+        console.log('Sample of extracted HTML (first 500 chars):', htmlContent.substring(0, 500));
         
-        // Check for variable placeholders in the extracted text
-        const placeholderMatches = extractedText.match(/\{\{[^}]+\}\}/g);
+        // Check for variable placeholders in the extracted HTML
+        const placeholderMatches = htmlContent.match(/\{\{[^}]+\}\}/g);
         if (placeholderMatches) {
           console.log('Found variable placeholders:', placeholderMatches);
         } else {
-          console.warn('No variable placeholders found in extracted text. This may indicate the template does not contain {{variable}} placeholders.');
+          console.warn('No variable placeholders found in extracted HTML. Will look for dot patterns for blank space detection.');
         }
         
-        if (extractedText.length === 0) {
+        if (htmlContent.length === 0) {
           throw new Error('Document appears to be empty or contains no readable text');
         }
         
-        return extractedText;
+        return htmlContent;
       } catch (mammothError) {
         console.warn('Mammoth extraction failed, falling back to placeholder text:', mammothError);
         

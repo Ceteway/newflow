@@ -4,6 +4,8 @@ import { SystemTemplateService, SystemTemplate } from "./systemTemplateService";
 import { DocumentVariable } from "@/types/database";
 import { ROF5FormData } from "@/hooks/useROF5Form";
 import { DocumentGenerator } from "./documentGenerator";
+import { detectAndConvertBlankSpaces } from "@/utils/templates/documentParser";
+import { detectExistingBlankSpaces, fillBlankSpace } from "@/utils/templates/blankSpaceManager";
 
 export interface GeneratedDocument {
   id: string;
@@ -18,6 +20,86 @@ export interface DocumentGenerationOptions {
   includeForwardingLetter: boolean;
   includeInvoice: boolean;
   agreementType?: string;
+}
+
+/**
+ * Fills blank spaces in HTML content with ROF5 data in a fixed order
+ * @param htmlContent HTML content with blank spaces
+ * @param formData ROF5 form data
+ * @returns Plain text content with blanks filled
+ */
+function fillBlanksWithROF5Data(htmlContent: string, formData: ROF5FormData): string {
+  console.log('Filling blanks with ROF5 data in fixed order...');
+  
+  // Convert any dot patterns to blank space spans
+  let processedContent = detectAndConvertBlankSpaces(htmlContent);
+  
+  // Define the fixed order of ROF5 fields as specified
+  const rof5FieldsInOrder = [
+    formData.landlordName || '[Landlord Name]',                    // 1. Landlord
+    formData.siteCode || '[Property Reference]',                   // 2. Property reference number
+    formatDateString(new Date()),                                  // 3. This ....day of .....20.....
+    formData.landlordAddress || '[Landlord Address]',              // 4. Address
+    formData.commencementDate || '[Commencement Date]',            // 5. Commencement date (First Schedule)
+    formData.siteLocation || '[Site Location]',                    // 6. Land, all land known as... (First Schedule)
+    formData.landlordAddress || '[Landlord Postal Address]',       // 7. The landlord postal address (First Schedule)
+    `${formData.leaseTerm || '[Lease Term]'} years`,              // 8. Period of years (Term)
+    `${formData.leaseTerm || '[Lease Term]'} years`               // 9. Consecutive term of years (Term)
+  ];
+  
+  console.log('ROF5 fields in order:', rof5FieldsInOrder);
+  
+  // Detect existing blank spaces in the processed content
+  const blankSpaces = detectExistingBlankSpaces(processedContent);
+  console.log(`Found ${blankSpaces.length} blank spaces to fill`);
+  
+  // Fill each blank space with the corresponding ROF5 field value
+  let filledContent = processedContent;
+  blankSpaces.forEach((blankSpace, index) => {
+    if (index < rof5FieldsInOrder.length) {
+      const fieldValue = rof5FieldsInOrder[index];
+      console.log(`Filling blank space ${index + 1} (${blankSpace.id}) with: ${fieldValue}`);
+      filledContent = fillBlankSpace(filledContent, blankSpace.id, fieldValue);
+    } else {
+      console.warn(`No ROF5 field defined for blank space ${index + 1}, leaving unfilled`);
+    }
+  });
+  
+  // Convert HTML to plain text for DOCX generation
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = filledContent;
+  
+  // Extract text content from the HTML
+  let plainText = tempDiv.textContent || tempDiv.innerText || '';
+  
+  // Clean up the text
+  plainText = plainText
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  
+  console.log(`Filled content converted to plain text, length: ${plainText.length}`);
+  return plainText;
+}
+
+/**
+ * Formats a date as "This [ordinal] day of [month] [year]"
+ * @param date Date to format
+ * @returns Formatted date string
+ */
+function formatDateString(date: Date): string {
+  const day = date.getDate();
+  const month = date.toLocaleDateString('en-US', { month: 'long' });
+  const year = date.getFullYear();
+  
+  // Get ordinal suffix for day
+  const getOrdinalSuffix = (n: number): string => {
+    const s = ['th', 'st', 'nd', 'rd'];
+    const v = n % 100;
+    return s[(v - 20) % 10] || s[v] || s[0];
+  };
+  
+  return `This ${day}${getOrdinalSuffix(day)} day of ${month} ${year}`;
 }
 
 export class DocumentGenerationService {
@@ -129,14 +211,34 @@ export class DocumentGenerationService {
   ): Promise<GeneratedDocument> {
     console.log(`Generating document from system template: ${template.name}`);
     
+    formData?: ROF5FormData
     try {
-      // Extract text content from the template
-      const templateContent = await SystemTemplateService.extractTextFromTemplate(template);
+      // Extract HTML content from the template
+      const htmlContent = await SystemTemplateService.extractTextFromTemplate(template);
+      
+      let finalContent: string;
+      
+      if (formData) {
+        // Fill blank spaces with ROF5 data in fixed order
+        finalContent = fillBlanksWithROF5Data(htmlContent, formData);
+      } else {
+        // Fallback: convert HTML to plain text and use variable replacement
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = htmlContent;
+        finalContent = tempDiv.textContent || tempDiv.innerText || '';
+        
+        // Apply variable replacement
+        variables.forEach(variable => {
+          const placeholder = `{{${variable.key}}}`;
+          const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+          finalContent = finalContent.replace(regex, variable.value || `[${variable.key}]`);
+        });
+      }
       
       // Generate the document using the document generator service
       const result = await DocumentGeneratorService.generateDocument(
-        templateContent,
-        variables,
+        finalContent,
+        [], // No need for variable replacement as we've already filled the content
         { format: 'docx', includeFormatting: true }
       );
 
