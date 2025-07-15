@@ -132,7 +132,8 @@ export class DocumentGenerationService {
           const agreementDoc = await this.generateSingleDocument(
             agreementTemplate,
             variables,
-            `${formData.siteCode}_${formData.siteName}_Agreement`
+            `${formData.siteCode}_${formData.siteName}_Agreement`,
+            formData
           );
           generatedDocuments.push(agreementDoc);
         } else {
@@ -157,7 +158,8 @@ export class DocumentGenerationService {
           const letterDoc = await this.generateSingleDocument(
             letterTemplate,
             variables,
-            `${formData.siteCode}_${formData.siteName}_Forwarding_Letter`
+            `${formData.siteCode}_${formData.siteName}_Forwarding_Letter`,
+            formData
           );
           generatedDocuments.push(letterDoc);
         } else {
@@ -181,7 +183,8 @@ export class DocumentGenerationService {
           const invoiceDoc = await this.generateSingleDocument(
             invoiceTemplate,
             variables,
-            `${formData.siteCode}_${formData.siteName}_Invoice`
+            `${formData.siteCode}_${formData.siteName}_Invoice`,
+            formData
           );
           generatedDocuments.push(invoiceDoc);
         } else {
@@ -207,11 +210,11 @@ export class DocumentGenerationService {
   private static async generateSingleDocument(
     template: SystemTemplate,
     variables: DocumentVariable[],
-    baseName: string
+    baseName: string,
+    formData?: ROF5FormData
   ): Promise<GeneratedDocument> {
     console.log(`Generating document from system template: ${template.name}`);
     
-    formData?: ROF5FormData
     try {
       // Extract HTML content from the template
       const htmlContent = await SystemTemplateService.extractTextFromTemplate(template);
