@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft, Download, Edit3 } from 'lucide-react';
 import { Document } from '@/types/templates/document';
+import { processContentForPreview } from '@/utils/templates/documentUtils';
 
 interface DocumentPreviewProps {
   document: Document;
@@ -15,23 +16,6 @@ const DocumentPreview: React.FC<DocumentPreviewProps> = ({
   onDownload, 
   onBack 
 }) => {
-  const processContentForPreview = (content: string) => {
-    // Replace blank spaces with underlines for preview
-    return content.replace(
-      /<span class="blank-space"[^>]*>(.*?)<\/span>/g,
-      (match, content) => {
-        // Check if this is an unfilled blank space (contains only dots)
-        if (content.match(/^\.+$/)) {
-          // Unfilled blank space - show as underline
-          const length = match.match(/data-length="(\d+)"/)?.[1] || '10';
-          return `<span style="text-decoration: underline; text-decoration-style: dotted; color: #6b7280;">${'_'.repeat(parseInt(length))}</span>`;
-        }
-        // Filled blank space - show the content
-        return content;
-      }
-    );
-  };
-
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
