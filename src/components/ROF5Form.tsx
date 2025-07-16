@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useROF5Form } from "@/hooks/useROF5Form";
@@ -15,8 +14,9 @@ import AISuggestions from "@/components/AISuggestions";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { FileText, Save, FolderOpen, Download } from "lucide-react";
+import { FileText, Save, FolderOpen, Download, Eye } from "lucide-react";
 import { SystemTemplateService, SystemTemplate } from "@/services/systemTemplateService";
+import { formatTemplateContent, isContentReadable } from "@/utils/templates/documentUtils";
 
 const ROF5Form = () => {
   const {
@@ -51,6 +51,11 @@ const ROF5Form = () => {
   const [selectedAgreementTemplate, setSelectedAgreementTemplate] = useState<SystemTemplate | null>(null);
   const [systemTemplates, setSystemTemplates] = useState<SystemTemplate[]>([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+  
+  // Template preview state
+  const [showTemplatePreview, setShowTemplatePreview] = useState(false);
+  const [templatePreviewContent, setTemplatePreviewContent] = useState<string>('');
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
   const handleInputChangeWithAI = (field: keyof typeof formData, value: string) => {
     handleInputChange(field, value);
@@ -351,6 +356,48 @@ const ROF5Form = () => {
     loadSystemTemplates();
   }, [toast]);
 
+  // Load template preview content when a template is selected
+  useEffect(() => {
+    const loadTemplatePreview = async () => {
+      if (selectedAgreementTemplate) {
+        setIsLoadingPreview(true);
+        try {
+          console.log('Loading preview for template:', selectedAgreementTemplate.name);
+          const content = await SystemTemplateService.extractTextFromTemplate(selectedAgreementTemplate);
+          
+          if (isContentReadable(content)) {
+            const formattedContent = formatTemplateContent(content);
+            setTemplatePreviewContent(formattedContent);
+          } else {
+            setTemplatePreviewContent(`
+              <div style="text-align: center; padding: 2rem; color: #6b7280;">
+                <h3 style="margin-bottom: 1rem;">Template Preview Not Available</h3>
+                <p>This template cannot be previewed in the browser, but it can still be used for document generation.</p>
+                <p style="margin-top: 1rem;"><strong>Template:</strong> ${selectedAgreementTemplate.name}</p>
+                <p><strong>File:</strong> ${selectedAgreementTemplate.file_name}</p>
+              </div>
+            `);
+          }
+        } catch (error) {
+          console.error('Error loading template preview:', error);
+          setTemplatePreviewContent(`
+            <div style="text-align: center; padding: 2rem; color: #ef4444;">
+              <h3 style="margin-bottom: 1rem;">Preview Error</h3>
+              <p>Unable to load template preview.</p>
+              <p style="margin-top: 1rem;"><strong>Error:</strong> ${error instanceof Error ? error.message : 'Unknown error'}</p>
+            </div>
+          `);
+        } finally {
+          setIsLoadingPreview(false);
+        }
+      } else {
+        setTemplatePreviewContent('');
+      }
+    };
+
+    loadTemplatePreview();
+  }, [selectedAgreementTemplate]);
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <Card>
@@ -518,6 +565,56 @@ const ROF5Form = () => {
                         <p className="text-sm text-green-800">
                           Template: <strong>{selectedAgreementTemplate.name}</strong>
                         </p>
+                        <div className="mt-2 flex space-x-2">
+                          <Dialog open={showTemplatePreview} onOpenChange={setShowTemplatePreview}>
+                            <DialogTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                              >
+                                <Eye className="w-3 h-3 mr-1" />
+                                Preview Template
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+                              <DialogHeader>
+                                <DialogTitle className="flex items-center space-x-2">
+                                  <FileText className="w-5 h-5" />
+                                  <span>Template Preview: {selectedAgreementTemplate.name}</span>
+                                </DialogTitle>
+                              </DialogHeader>
+                              <div className="flex-1 overflow-auto">
+                                {isLoadingPreview ? (
+                                  <div className="flex items-center justify-center h-64">
+                                    <div className="text-center">
+                                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                                      <p className="text-gray-600">Loading template preview...</p>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="bg-white p-6 rounded-lg border max-h-96 overflow-auto">
+                                    <div 
+                                      className="prose prose-sm max-w-none"
+                                      dangerouslySetInnerHTML={{ 
+                                        __html: templatePreviewContent 
+                                      }}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex justify-end pt-4 border-t">
+                                <Button 
+                                  variant="outline" 
+                                  onClick={() => setShowTemplatePreview(false)}
+                                >
+                                  Close Preview
+                                </Button>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
                       </div>
                     )}
                     

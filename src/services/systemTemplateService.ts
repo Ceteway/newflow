@@ -341,7 +341,7 @@ export class SystemTemplateService {
 
   static async extractTextFromTemplate(template: SystemTemplate): Promise<string> {
     try {
-      console.log('Extracting text from template:', template.name, 'Size:', template.file_data.length);
+      console.log('Extracting text from template:', template.name, 'Size:', template.file_data.length, 'Type:', template.content_type);
 
       if (!template.file_data || template.file_data.length === 0) {
         throw new Error('No file data available');
@@ -360,8 +360,31 @@ export class SystemTemplateService {
         const mammoth = await import('mammoth');
         console.log('Mammoth imported successfully');
         
-        // Use convertToHtml to preserve structure for blank space detection
-        const result = await mammoth.convertToHtml({ arrayBuffer });
+        // Enhanced mammoth options for better conversion
+        const options = {
+          convertImage: mammoth.images.imgElement(function(image) {
+            return image.read("base64").then(function(imageBuffer) {
+              return {
+                src: "data:" + image.contentType + ";base64," + imageBuffer
+              };
+            });
+          }),
+          styleMap: [
+            "p[style-name='Heading 1'] => h1:fresh",
+            "p[style-name='Heading 2'] => h2:fresh", 
+            "p[style-name='Heading 3'] => h3:fresh",
+            "p[style-name='Title'] => h1:fresh",
+            "p[style-name='Subtitle'] => h2:fresh",
+            "r[style-name='Strong'] => strong",
+            "r[style-name='Emphasis'] => em",
+            "p[style-name='Normal'] => p:fresh"
+          ],
+          includeDefaultStyleMap: true,
+          includeEmbeddedStyleMap: true
+        };
+        
+        // Use convertToHtml with enhanced options to preserve structure for blank space detection
+        const result = await mammoth.convertToHtml({ arrayBuffer }, options);
         console.log('HTML conversion result:', result.messages);
         
         if (!result.value) {
@@ -375,6 +398,8 @@ export class SystemTemplateService {
         htmlContent = htmlContent
           .replace(/\r\n/g, '\n')
           .replace(/\n{3,}/g, '\n\n')
+          .replace(/<p><\/p>/g, '')
+          .replace(/<p>\s*<\/p>/g, '')
           .trim();
 
         console.log('HTML extracted successfully, length:', htmlContent.length);
@@ -388,23 +413,42 @@ export class SystemTemplateService {
           console.warn('No variable placeholders found in extracted HTML. Will look for dot patterns for blank space detection.');
         }
         
+        // Log any conversion warnings
+        if (result.messages && result.messages.length > 0) {
+          console.warn('Document conversion warnings:', result.messages);
+        }
+        
         if (htmlContent.length === 0) {
           throw new Error('Document appears to be empty or contains no readable text');
         }
         
         return htmlContent;
       } catch (mammothError) {
-        console.warn('Mammoth extraction failed, falling back to placeholder text:', mammothError);
+        console.warn('Mammoth extraction failed:', mammothError);
+        
+        // Try to provide more specific error information
+        let errorDetails = 'Unknown parsing error';
+        if (mammothError instanceof Error) {
+          if (mammothError.message.includes('not a valid zip file')) {
+            errorDetails = 'Invalid Word document format - file may be corrupted or not a valid .docx file';
+          } else if (mammothError.message.includes('corrupted')) {
+            errorDetails = 'Document appears to be corrupted';
+          } else if (mammothError.message.includes('password')) {
+            errorDetails = 'Document is password protected';
+          } else {
+            errorDetails = mammothError.message;
+          }
+        }
         
         // Return a placeholder text instead of failing completely
-        return `[Template: ${template.name}]\n\nThis document could not be previewed due to format limitations.\n\nFilename: ${template.file_name}\nType: ${template.content_type}\nSize: ${template.file_data.length} bytes\n\nYou can still download and use this template.`;
+        return `[Template: ${template.name}]\n\nThis document could not be previewed due to format limitations.\n\nFilename: ${template.file_name}\nType: ${template.content_type}\nSize: ${template.file_data.length} bytes\nError: ${errorDetails}\n\nYou can still download and use this template for document generation.`;
       }
     } catch (error) {
       console.error('Error extracting text from template:', error);
       
       // Provide more specific error messages
       // Return a fallback message instead of throwing an error
-      return `[Template: ${template.name}]\n\nThis document could not be previewed.\n\nFilename: ${template.file_name}\nType: ${template.content_type}\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}\n\nYou can still download and use this template.`;
+      return `[Template: ${template.name}]\n\nThis document could not be previewed.\n\nFilename: ${template.file_name}\nType: ${template.content_type}\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}\n\nYou can still download and use this template for document generation.`;
     }
   }
 

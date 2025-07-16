@@ -233,8 +233,7 @@ export const detectFileType = async (file: File): Promise<string> => {
 export const detectAndConvertBlankSpaces = (content: string): string => {
   console.log('Detecting blank spaces in content...');
   
-  // Pattern to match sequences of dots, underscores, or dashes that represent blank spaces
-  // This will match patterns like: ........, ________, ---------, or mixed patterns
+  // Enhanced patterns to match various blank space representations
   const blankSpacePatterns = [
     // Match 3 or more consecutive dots
     /\.{3,}/g,
@@ -249,7 +248,26 @@ export const detectAndConvertBlankSpaces = (content: string): string => {
     // Match patterns with spaces between characters like "_ _ _ _"
     /(_\s*){3,}/g,
     // Match patterns like "- - - -"
-    /(-\s*){3,}/g
+    /(-\s*){3,}/g,
+    // Match bracketed blank patterns like [___], [BLANK], [____]
+    /\[_{3,}\]/g,
+    /\[BLANK\]/gi,
+    /\[blank\]/gi,
+    // Match parenthesized blank patterns like (___), (BLANK)
+    /\(_{3,}\)/g,
+    /\(BLANK\)/gi,
+    /\(blank\)/gi,
+    // Match common placeholder patterns
+    /\[fill\s*in\]/gi,
+    /\[insert\]/gi,
+    /\[name\]/gi,
+    /\[date\]/gi,
+    /\[amount\]/gi,
+    /\[address\]/gi,
+    // Match patterns with multiple spaces that might represent blanks
+    /\s{5,}/g,
+    // Match tab characters that might represent blanks
+    /\t{2,}/g
   ];
 
   let processedContent = content;
@@ -269,6 +287,25 @@ export const detectAndConvertBlankSpaces = (content: string): string => {
         length = match.length;
       }
       
+      // Special handling for bracketed and parenthesized patterns
+      if (match.includes('[') || match.includes('(')) {
+        // For bracketed patterns, use a standard length
+        length = 15;
+      }
+      
+      // Special handling for common placeholder words
+      if (match.toLowerCase().includes('blank') || 
+          match.toLowerCase().includes('fill') || 
+          match.toLowerCase().includes('insert')) {
+        length = 20;
+      }
+      
+      // Special handling for specific field types
+      if (match.toLowerCase().includes('name')) length = 25;
+      if (match.toLowerCase().includes('address')) length = 40;
+      if (match.toLowerCase().includes('date')) length = 15;
+      if (match.toLowerCase().includes('amount')) length = 15;
+      
       // Ensure minimum length of 3 and maximum of 50
       length = Math.max(3, Math.min(50, length));
       
@@ -283,7 +320,7 @@ export const detectAndConvertBlankSpaces = (content: string): string => {
   });
 
   if (blankSpaceCount > 0) {
-    console.log(`Converted ${blankSpaceCount} blank space patterns to editable blank spaces`);
+    console.log(`Enhanced detection: Converted ${blankSpaceCount} blank space patterns to editable blank spaces`);
   }
 
   return processedContent;
