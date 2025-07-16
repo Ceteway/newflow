@@ -17,6 +17,8 @@ import { Input } from "@/components/ui/input";
 import { FileText, Save, FolderOpen, Download, Eye } from "lucide-react";
 import { SystemTemplateService, SystemTemplate } from "@/services/systemTemplateService";
 import { formatTemplateContent, isContentReadable } from "@/utils/templates/documentUtils";
+import FanisiDocumentGeneratorComponent from "@/components/FanisiDocumentGenerator";
+import { FanisiGeneratedDocument } from "@/types/fanisi";
 
 const ROF5Form = () => {
   const {
@@ -56,6 +58,10 @@ const ROF5Form = () => {
   const [showTemplatePreview, setShowTemplatePreview] = useState(false);
   const [templatePreviewContent, setTemplatePreviewContent] = useState<string>('');
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  
+  // Fanisi document generator state
+  const [showFanisiGenerator, setShowFanisiGenerator] = useState(false);
+  const [fanisiDocuments, setFanisiDocuments] = useState<FanisiGeneratedDocument[]>([]);
 
   const handleInputChangeWithAI = (field: keyof typeof formData, value: string) => {
     handleInputChange(field, value);
@@ -250,6 +256,14 @@ const ROF5Form = () => {
     toast({
       title: "Download Started",
       description: `Downloading ${generatedDocuments.length} documents...`,
+    });
+  };
+
+  const handleFanisiDocumentGenerated = (document: FanisiGeneratedDocument) => {
+    setFanisiDocuments(prev => [...prev, document]);
+    toast({
+      title: "Fanisi Document Generated",
+      description: `${document.fileName} has been generated successfully`,
     });
   };
 
@@ -658,6 +672,62 @@ const ROF5Form = () => {
               </CardContent>
             </Card>
 
+            {/* Fanisi Legal Document Generator */}
+            <Card className="border-2 border-purple-200 bg-purple-50">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-purple-800">Fanisi Legal Document Generator</h3>
+                  <Button
+                    type="button"
+                    onClick={() => setShowFanisiGenerator(!showFanisiGenerator)}
+                    variant="outline"
+                    className="border-purple-300 text-purple-700 hover:bg-purple-100"
+                  >
+                    {showFanisiGenerator ? 'Hide' : 'Show'} Fanisi Generator
+                  </Button>
+                </div>
+                
+                {showFanisiGenerator && (
+                  <FanisiDocumentGeneratorComponent
+                    rof5Data={formData}
+                    onDocumentGenerated={handleFanisiDocumentGenerated}
+                  />
+                )}
+                
+                {fanisiDocuments.length > 0 && (
+                  <div className="mt-4 border-t pt-4">
+                    <h4 className="font-medium mb-3">Generated Fanisi Documents ({fanisiDocuments.length})</h4>
+                    <div className="space-y-2">
+                      {fanisiDocuments.map((doc) => (
+                        <div key={doc.id} className="flex items-center justify-between p-2 bg-white rounded border">
+                          <div>
+                            <span className="text-sm font-medium">{doc.fileName}</span>
+                            <p className="text-xs text-gray-500">{doc.documentType} - {doc.siteName}</p>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              const blob = new Blob([doc.content], {
+                                type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                              });
+                              link.href = URL.createObjectURL(blob);
+                              link.download = doc.fileName;
+                              link.click();
+                              URL.revokeObjectURL(link.href);
+                            }}
+                            className="bg-purple-600 hover:bg-purple-700 text-white"
+                          >
+                            Download
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
             <FormActions 
               onSaveDraft={handleSaveDraft}
               isSubmitting={isSubmitting}
