@@ -9,8 +9,7 @@ import {
   Check, 
   X, 
   Search,
-  Calendar,
-  SortAsc
+  Calendar
 } from 'lucide-react';
 import { Document } from '@/types/templates/document';
 
@@ -19,10 +18,8 @@ interface DocumentListProps {
   isSystemTab?: boolean;
   onPreview: (document: Document) => void;
   onEdit: (document: Document) => void;
-  onDownload: (document: Document) => void;
   onDelete: (documentId: string) => void;
   onRename: (documentId: string, newName: string) => void;
-  title: string;
 }
 
 const DocumentList: React.FC<DocumentListProps> = ({
@@ -30,10 +27,8 @@ const DocumentList: React.FC<DocumentListProps> = ({
   isSystemTab = false,
   onPreview,
   onEdit,
-  onDownload,
   onDelete,
-  onRename,
-  title
+  onRename
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'created' | 'modified'>('modified');
@@ -84,6 +79,8 @@ const DocumentList: React.FC<DocumentListProps> = ({
       minute: '2-digit'
     });
   };
+
+  const title = isSystemTab ? 'System Documents' : 'User Templates';
 
   return (
     <div className="h-full flex flex-col">

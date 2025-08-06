@@ -10,7 +10,7 @@ import AdditionalInformationSection from "./AdditionalInformationSection";
 interface FormSectionsProps {
   formData: ROF5FormData;
   onInputChange: (field: keyof ROF5FormData, value: string) => void;
-  onDocumentCheck: (document: string, checked: boolean) => void;
+  onDocumentCheck?: (document: string, checked: boolean) => void;
 }
 
 const FormSections = ({ formData, onInputChange, onDocumentCheck }: FormSectionsProps) => {

@@ -18,6 +18,7 @@ import { FileText, Save, FolderOpen, Download, Eye } from "lucide-react";
 import { SystemTemplateService, SystemTemplate } from "@/services/systemTemplateService";
 import { formatTemplateContent, isContentReadable } from "@/utils/templates/documentUtils";
 import FanisiDocumentGeneratorComponent from "@/components/FanisiDocumentGenerator";
+import EnhancedTemplateSelector from "@/components/EnhancedTemplateSelector";
 import { FanisiGeneratedDocument } from "@/types/fanisi";
 
 const ROF5Form = () => {
@@ -264,6 +265,23 @@ const ROF5Form = () => {
     toast({
       title: "Fanisi Document Generated",
       description: `${document.fileName} has been generated successfully`,
+    });
+  };
+
+  const handleDocumentGenerated = (document: { name: string; content: Uint8Array }) => {
+    const generatedDoc = {
+      id: `doc_${Date.now()}`,
+      name: document.name,
+      content: document.content,
+      format: 'docx',
+      templateUsed: 'system-template'
+    };
+    
+    setGeneratedDocuments(prev => [...prev, generatedDoc]);
+    
+    toast({
+      title: "Document Generated",
+      description: `${document.name} has been generated and downloaded`,
     });
   };
 
@@ -518,159 +536,10 @@ const ROF5Form = () => {
             </div>
 
             {/* Document Generation Section */}
-            <Card className="border-2 border-blue-200 bg-blue-50">
-              <CardContent className="p-6">
-                <h3 className="text-lg font-semibold mb-4 text-blue-800">Document Generation</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div className="space-y-3">
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={documentOptions.includeAgreement}
-                        onChange={(e) => setDocumentOptions(prev => ({
-                          ...prev,
-                          includeAgreement: e.target.checked
-                        }))}
-                        className="rounded"
-                      />
-                      <span>Generate Agreement Document</span>
-                    </label>
-                    
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={documentOptions.includeForwardingLetter}
-                        onChange={(e) => setDocumentOptions(prev => ({
-                          ...prev,
-                          includeForwardingLetter: e.target.checked
-                        }))}
-                        className="rounded"
-                      />
-                      <span>Generate Forwarding Letter</span>
-                    </label>
-                    
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={documentOptions.includeInvoice}
-                        onChange={(e) => setDocumentOptions(prev => ({
-                          ...prev,
-                          includeInvoice: e.target.checked
-                        }))}
-                        className="rounded"
-                      />
-                      <span>Generate Invoice</span>
-                    </label>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowTemplateSelector(true)}
-                      className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                      disabled={isLoadingTemplates}
-                    >
-                      {isLoadingTemplates ? "Loading Templates..." : "Select Template"}
-                    </button>
-                    
-                    {selectedAgreementTemplate && (
-                      <div className="p-3 bg-green-100 rounded">
-                        <p className="text-sm text-green-800">
-                          Template: <strong>{selectedAgreementTemplate.name}</strong>
-                        </p>
-                        <div className="mt-2 flex space-x-2">
-                          <Dialog open={showTemplatePreview} onOpenChange={setShowTemplatePreview}>
-                            <DialogTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="text-blue-600 border-blue-300 hover:bg-blue-50"
-                              >
-                                <Eye className="w-3 h-3 mr-1" />
-                                Preview Template
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
-                              <DialogHeader>
-                                <DialogTitle className="flex items-center space-x-2">
-                                  <FileText className="w-5 h-5" />
-                                  <span>Template Preview: {selectedAgreementTemplate.name}</span>
-                                </DialogTitle>
-                              </DialogHeader>
-                              <div className="flex-1 overflow-auto">
-                                {isLoadingPreview ? (
-                                  <div className="flex items-center justify-center h-64">
-                                    <div className="text-center">
-                                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                                      <p className="text-gray-600">Loading template preview...</p>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="bg-white p-6 rounded-lg border max-h-96 overflow-auto">
-                                    <div 
-                                      className="prose prose-sm max-w-none"
-                                      dangerouslySetInnerHTML={{ 
-                                        __html: templatePreviewContent 
-                                      }}
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex justify-end pt-4 border-t">
-                                <Button 
-                                  variant="outline" 
-                                  onClick={() => setShowTemplatePreview(false)}
-                                >
-                                  Close Preview
-                                </Button>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                        </div>
-                      </div>
-                    )}
-                    
-                    <button
-                      type="button"
-                      onClick={handleGenerateDocuments}
-                      disabled={isSubmitting}
-                      className="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-                    >
-                      {isSubmitting ? "Generating..." : "Generate Documents"}
-                    </button>
-                  </div>
-                </div>
-
-                {generatedDocuments.length > 0 && (
-                  <div className="border-t pt-4">
-                    <h4 className="font-medium mb-3">Generated Documents ({generatedDocuments.length})</h4>
-                    <div className="space-y-2">
-                      {generatedDocuments.map((doc) => (
-                        <div key={doc.id} className="flex items-center justify-between p-2 bg-white rounded border">
-                          <span className="text-sm">{doc.name}</span>
-                          <button
-                            type="button"
-                            onClick={() => DocumentGenerationService.downloadDocument(doc)}
-                            className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
-                          >
-                            Download
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={handleDownloadAll}
-                        className="w-full mt-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                      >
-                        Download All Documents
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <EnhancedTemplateSelector
+              rof5Data={formData}
+              onDocumentGenerated={handleDocumentGenerated}
+            />
 
             {/* Fanisi Legal Document Generator */}
             <Card className="border-2 border-purple-200 bg-purple-50">
